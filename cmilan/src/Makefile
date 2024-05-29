@@ -2,11 +2,13 @@ CFLAGS	= -Wall -W -Werror -O2
 LDFLAGS	=
 
 HEADERS	= scanner.h \
+	  parser.h \
 	  codegen.h
 
 OBJS	= main.o \
 	  codegen.o \
 	  scanner.o \
+	  parser.o \
 	  
 EXE	= cmilan
 
