@@ -42,10 +42,12 @@ void Scanner::nextToken()
 		nextChar();
 		if(ch_ == '*') {
 			nextChar();
+			skipSpace();
 			bool inside = true;
 			while(inside) {
 				while(ch_ != '*' && !input_.eof()) {
 					nextChar();
+					skipSpace();
 				}
 
 				if(input_.eof()) {
@@ -58,6 +60,7 @@ void Scanner::nextToken()
 					inside = false;
 					nextChar();
 				}
+				skipSpace();
 			}
 		}
 		else {
