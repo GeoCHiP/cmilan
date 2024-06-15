@@ -94,27 +94,27 @@ public:
 	{
 		return lineNumber_;
 	}
-	
+
 	Token token() const
 	{
 		return token_;
 	}
-	
+
 	int getIntValue() const
 	{
 		return intValue_;
 	}
-	
+
 	string getStringValue() const
 	{
 		return stringValue_;
 	}
-	
+
 	Cmp getCmpValue() const
 	{
 		return cmpValue_;
 	}
-	
+
 	Arithmetic getArithmeticValue() const
 	{
 		return arithmeticValue_;
@@ -122,10 +122,10 @@ public:
 
 	// Переход к следующей лексеме.
 	// Текущая лексема записывается в token_ и изымается из потока.
-	void nextToken();	
+	void nextToken();
 private:
 
-	// Пропуск всех пробельные символы. 
+	// Пропуск всех пробельные символы.
 	// Если встречается символ перевода строки, номер текущей строки
 	// (lineNumber) увеличивается на единицу.
 	void skipSpace();
@@ -147,14 +147,14 @@ private:
 
 	const string fileName_; //входной файл
 	int lineNumber_; //номер текущей строки кода
-	
+
 	Token token_; //текущая лексема
 	int intValue_; //значение текущего целого
 	string stringValue_; //имя переменной
 	Cmp cmpValue_; //значение оператора сравнения (>, <, =, !=, >=, <=)
 	Arithmetic arithmeticValue_; //значение знака (+,-,*,/)
 
-	map<string, Token> keywords_; //ассоциативный массив с лексемами и 
+	map<string, Token> keywords_; //ассоциативный массив с лексемами и
 	//соответствующими им зарезервированными словами в качестве индексов
 
 	istream& input_; //входной поток для чтения из файла.

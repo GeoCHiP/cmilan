@@ -6,7 +6,7 @@
 
 using namespace std;
 
-// Инструкции виртуальной машины Милана 
+// Инструкции виртуальной машины Милана
 
 enum Instruction
 {
@@ -32,7 +32,7 @@ enum Instruction
 	PRINT		// печать на стандартный вывод числа с вершины стека
 };
 
-// Класс Command представляет машинные инструкции. 
+// Класс Command представляет машинные инструкции.
 
 class Command
 {
@@ -73,22 +73,22 @@ public:
 
 	// Добавление инструкции без аргументов в конец программы
 	void emit(Instruction instruction);
-	
+
 	// Добавление инструкции с одним аргументом в конец программы
 	void emit(Instruction instruction, int arg);
-	
+
 	// Запись инструкции без аргументов по указанному адресу
 	void emitAt(int address, Instruction instruction);
 
 	// Запись инструкции с одним аргументом по указанному адресу
 	void emitAt(int address, Instruction instruction, int arg);
-	
+
 	// Получение адреса, непосредственно следующего за последней инструкцией в программе
 	int getCurrentAddress();
 
 	// Формирование "пустой" инструкции (NOP) и возврат ее адреса
 	int reserve();
-	
+
 	// Запись последовательности инструкций в выходной поток
 	void flush();
 

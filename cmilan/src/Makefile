@@ -9,7 +9,7 @@ OBJS	= main.o \
 	  codegen.o \
 	  scanner.o \
 	  parser.o \
-	  
+
 EXE	= cmilan
 
 $(EXE): $(OBJS) $(HEADERS)
