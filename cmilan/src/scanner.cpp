@@ -28,6 +28,10 @@ static const char * tokenNames_[] = {
 	"'('",
 	"')'",
 	"';'",
+	"'&&'",
+	"'||'",
+	"'true'",
+	"'false'",
 };
 
 void Scanner::nextToken()
@@ -203,6 +207,26 @@ void Scanner::nextToken()
 				token_ = T_MULOP;
 				arithmeticValue_ = A_MULTIPLY;
 				nextChar();
+				break;
+			case '&':
+				nextChar();
+				if(ch_ == '&') {
+					nextChar();
+					token_ = T_AND;
+				}
+				else {
+					token_ = T_ILLEGAL;
+				}
+				break;
+			case '|':
+				nextChar();
+				if(ch_ == '|') {
+					nextChar();
+					token_ = T_OR;
+				}
+				else {
+					token_ = T_ILLEGAL;
+				}
 				break;
 			//Иначе лексема ошибки.
 			default:
