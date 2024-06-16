@@ -1,0 +1,9 @@
+begin
+    x := 0;
+
+    /* READ will not be executed
+       because x != 0 is false */
+    if x != 0 && read then
+        write(1)
+    fi
+end
