@@ -206,22 +206,80 @@ void Parser::factor()
 void Parser::logicalAndExpression()
 {
 	relation();
-	while(see(T_AND)) {
+	while(see(T_LAND)) {
 		next();
 		relation();
 		codegen_->emit(MULT);
+	}
+
+	std::vector<int> jumpFalseAddresses;
+	bool has_and = false;
+	while(see(T_AND)) {
+		has_and = true;
+		next();
+
+		codegen_->emit(PUSH, 0);
+		codegen_->emit(COMPARE, 0);
+		jumpFalseAddresses.push_back(codegen_->reserve());
+
+		relation();
+	}
+
+	if(has_and) {
+		codegen_->emit(PUSH, 0);
+		codegen_->emit(COMPARE, 0);
+		jumpFalseAddresses.push_back(codegen_->reserve());
+
+		codegen_->emit(PUSH, 1);
+		int jumpTrueAddress = codegen_->reserve();
+
+		for (int jumpFalseAddress : jumpFalseAddresses) {
+			codegen_->emitAt(jumpFalseAddress, JUMP_YES, codegen_->getCurrentAddress());
+		}
+
+		codegen_->emit(PUSH, 0);
+		codegen_->emitAt(jumpTrueAddress, JUMP, codegen_->getCurrentAddress());
 	}
 }
 
 void Parser::logicalOrExpression()
 {
 	logicalAndExpression();
-	while(see(T_OR)) {
+	while(see(T_LOR)) {
 		next();
 		logicalAndExpression();
 		codegen_->emit(ADD);
 		codegen_->emit(PUSH, 0);
 		codegen_->emit(COMPARE, 3);
+	}
+
+	std::vector<int> jumpTrueAddresses;
+	bool has_or = false;
+	while(see(T_OR)) {
+		has_or = true;
+		next();
+
+		codegen_->emit(PUSH, 1);
+		codegen_->emit(COMPARE, 0);
+		jumpTrueAddresses.push_back(codegen_->reserve());
+
+		relation();
+	}
+
+	if(has_or) {
+		codegen_->emit(PUSH, 1);
+		codegen_->emit(COMPARE, 0);
+		jumpTrueAddresses.push_back(codegen_->reserve());
+
+		codegen_->emit(PUSH, 0);
+		int jumpFalseAddress = codegen_->reserve();
+
+		for (int jumpFalseAddress : jumpTrueAddresses) {
+			codegen_->emitAt(jumpFalseAddress, JUMP_YES, codegen_->getCurrentAddress());
+		}
+
+		codegen_->emit(PUSH, 1);
+		codegen_->emitAt(jumpFalseAddress, JUMP, codegen_->getCurrentAddress());
 	}
 }
 

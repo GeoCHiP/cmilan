@@ -28,6 +28,8 @@ static const char * tokenNames_[] = {
 	"'('",
 	"')'",
 	"';'",
+	"'&'",
+	"'|'",
 	"'&&'",
 	"'||'",
 	"'!'",
@@ -216,7 +218,7 @@ void Scanner::nextToken()
 					token_ = T_AND;
 				}
 				else {
-					token_ = T_ILLEGAL;
+					token_ = T_LAND;
 				}
 				break;
 			case '|':
@@ -226,7 +228,7 @@ void Scanner::nextToken()
 					token_ = T_OR;
 				}
 				else {
-					token_ = T_ILLEGAL;
+					token_ = T_LOR;
 				}
 				break;
 			//Иначе лексема ошибки.
