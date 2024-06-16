@@ -1,0 +1,222 @@
+begin
+    x := 0;
+    y := 1;
+    z := 2;
+
+    error := false;
+
+    /*
+      test 1
+      false || false == false
+    */
+    if x > 2 || y > z + 5 then
+        error := true;
+        write(1)
+    fi;
+
+    /*
+      test 2
+      false || true == true
+    */
+    if x > 2 || y <= z + 5 then
+    else
+        error := true;
+        write(2)
+    fi;
+
+    /*
+      test 3
+      true || false == true
+    */
+    if x < 2 || y > z + 5 then
+    else
+        error := true;
+        write(3)
+    fi;
+
+    /*
+      test 4
+      true || true == true
+    */
+    if x < 2 || y <= z + 5 then
+    else
+        error := true;
+        write(4)
+    fi;
+
+    /*
+      test 5
+      false || false || false || true == true
+    */
+    if x > 2 || y > z + 5 || x > y || x < y then
+    else error := true;
+        write(5)
+    fi;
+
+    /*
+      test 6
+      true || false || false || false == true
+    */
+    if x < 2 || y > z + 5 || x > y || x >= y then
+    else
+        error := true;
+        write(6)
+    fi;
+
+    /*
+      test 7
+      false && false == false
+    */
+    if x > 2 && y > z + 5 then
+        error := true;
+        write(7)
+    else
+    fi;
+
+    /*
+      test 8
+      false && true == false
+    */
+    if x > 2 && y <= z + 5 then
+        error := true;
+        write(8)
+    else
+    fi;
+
+    /*
+      test 9
+      true && false == false
+    */
+    if x < 2 && y > z + 5 then
+        error := true;
+        write(9)
+    else
+    fi;
+
+    /*
+      test 10
+      true && true == true
+    */
+    if x < 2 && y <= z + 5 then
+    else
+        error := true;
+        write(10)
+    fi;
+
+    /*
+      test 11
+      true && true && false && true && true == false
+    */
+    if x < 2 && y <= z + 5 && x > y && x < y && y > x then
+        error := true;
+        write(11)
+    else
+    fi;
+
+    /*
+      test 12
+      true && false || true == true
+    */
+    if x < 2 && y > z + 5 || x < y then
+    else
+        error := true;
+        write(12)
+    fi;
+
+    /*
+      test 13
+      true || false && true == true
+    */
+    if x < 2 || y > z + 5 && x < y then
+    else
+        error := true;
+        write(13)
+    fi;
+
+    /*
+      test 14
+      true || false && true == true
+    */
+    if x < 2 || y > z + 5 && x < y then
+    else
+        error := true;
+        write(14)
+    fi;
+
+    /*
+      test 15
+      true || false && false == true
+    */
+    if x < 2 || y > z + 5 && x < y then
+    else
+        error := true;
+        write(15)
+    fi;
+
+    /*
+      test 16
+      (true || false) && false == false
+    */
+    if (x < 2 || y > z + 5) && x > y then
+        error := true;
+        write(16)
+    else
+    fi;
+
+    /*
+      test 17
+      !(false) == true
+    */
+    if !(x > 2) then
+    else
+        error := true;
+        write(17)
+    fi;
+
+    /*
+      test 18
+      !(false || true) == false
+    */
+    if !(x > 2 || y <= z + 5) then
+        error := true;
+        write(18)
+    else
+    fi;
+
+    /*
+      test 19
+      boolean variable
+    */
+    b := x < 2;
+    if b then
+    else
+        error := true;
+        write(19)
+    fi;
+
+    /*
+      test 20
+      boolean variable
+    */
+    if !b then
+        error := true;
+        write(20)
+    else
+    fi;
+
+    /*
+      test 21
+      true and false literals
+    */
+    if true then
+    else
+        error := true;
+        write(21)
+    fi;
+
+    if error then
+        write(false)
+    else
+        write(true)
+    fi
+end
