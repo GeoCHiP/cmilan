@@ -65,10 +65,8 @@ private:
 	void term(); //разбор слагаемого.
 	void factor(); //разбор множителя.
 	void relation(); //разбор условия.
-	void boolean_expression();
-	void boolean_term();
-	void boolean_factor();
-	void boolean_relation();
+	void logicalAndExpression();
+	void logicalOrExpression();
 
 	// Сравнение текущей лексемы с образцом. Текущая позиция в потоке лексем не изменяется.
 	bool see(Token t)

@@ -30,6 +30,7 @@ static const char * tokenNames_[] = {
 	"';'",
 	"'&&'",
 	"'||'",
+	"'!'",
 	"'true'",
 	"'false'",
 };
@@ -180,7 +181,7 @@ void Scanner::nextToken()
 					cmpValue_ = C_NE;
 				}
 				else {
-					token_ = T_ILLEGAL;
+					token_ = T_NOT;
 				}
 				break;
 			//Если встретим "=" - лексема сравнения и знак "="

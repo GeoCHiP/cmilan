@@ -46,15 +46,14 @@ void Parser::statement()
 		int varAddress = findOrAddVariable(scanner_->getStringValue());
 		next();
 		mustBe(T_ASSIGN);
-		expression();
+		logicalOrExpression();
 		codegen_->emit(STORE, varAddress);
 	}
 	// Если встретили IF, то затем должно следовать условие. На вершине стека лежит 1 или 0 в зависимости от выполнения условия.
 	// Затем зарезервируем место для условного перехода JUMP_NO к блоку ELSE (переход в случае ложного условия). Адрес перехода
 	// станет известным только после того, как будет сгенерирован код для блока THEN.
 	else if(match(T_IF)) {
-		//relation();
-		boolean_expression();
+		logicalOrExpression();
 
 		int jumpNoAddress = codegen_->reserve();
 
@@ -82,8 +81,7 @@ void Parser::statement()
 	else if(match(T_WHILE)) {
 		//запоминаем адрес начала проверки условия.
 		int conditionAddress = codegen_->getCurrentAddress();
-		//relation();
-		boolean_expression();
+		logicalOrExpression();
 		//резервируем место под инструкцию условного перехода для выхода из цикла.
 		int jumpNoAddress = codegen_->reserve();
 		mustBe(T_DO);
@@ -165,6 +163,14 @@ void Parser::factor()
 		codegen_->emit(PUSH, value);
 		//Если встретили число, то преобразуем его в целое и записываем на вершину стека
 	}
+	else if(see(T_TRUE)) {
+		next();
+		codegen_->emit(PUSH, 1);
+	}
+	else if(see(T_FALSE)) {
+		next();
+		codegen_->emit(PUSH, 0);
+	}
 	else if(see(T_IDENTIFIER)) {
 		int varAddress = findOrAddVariable(scanner_->getStringValue());
 		next();
@@ -178,10 +184,15 @@ void Parser::factor()
 		//Если встретили знак "-", и за ним <factor> то инвертируем значение, лежащее на вершине стека
 	}
 	else if(match(T_LPAREN)) {
-		expression();
+		logicalOrExpression();
 		mustBe(T_RPAREN);
 		//Если встретили открывающую скобку, тогда следом может идти любое арифметическое выражение и обязательно
 		//закрывающая скобка.
+	}
+	else if(match(T_NOT)) {
+		factor();
+		codegen_->emit(PUSH, 0);
+		codegen_->emit(COMPARE, 0);
 	}
 	else if(match(T_READ)) {
 		codegen_->emit(INPUT);
@@ -192,79 +203,38 @@ void Parser::factor()
 	}
 }
 
-void Parser::relation()
+void Parser::logicalAndExpression()
 {
-	//Условие сравнивает два выражения по какому-либо из знаков. Каждый знак имеет свой номер. В зависимости от
-	//результата сравнения на вершине стека окажется 0 или 1.
-	expression();
-	if(see(T_CMP)) {
-		Cmp cmp = scanner_->getCmpValue();
+	relation();
+	while(see(T_AND)) {
 		next();
-		expression();
-		switch(cmp) {
-			//для знака "=" - номер 0
-			case C_EQ:
-				codegen_->emit(COMPARE, 0);
-				break;
-			//для знака "!=" - номер 1
-			case C_NE:
-				codegen_->emit(COMPARE, 1);
-				break;
-			//для знака "<" - номер 2
-			case C_LT:
-				codegen_->emit(COMPARE, 2);
-				break;
-			//для знака ">" - номер 3
-			case C_GT:
-				codegen_->emit(COMPARE, 3);
-				break;
-			//для знака "<=" - номер 4
-			case C_LE:
-				codegen_->emit(COMPARE, 4);
-				break;
-			//для знака ">=" - номер 5
-			case C_GE:
-				codegen_->emit(COMPARE, 5);
-				break;
-		};
-	}
-	else {
-		reportError("comparison operator expected.");
+		relation();
+		codegen_->emit(MULT);
 	}
 }
 
-void Parser::boolean_expression() {
-	boolean_term();
+void Parser::logicalOrExpression()
+{
+	logicalAndExpression();
 	while(see(T_OR)) {
 		next();
-		boolean_term();
+		logicalAndExpression();
 		codegen_->emit(ADD);
 		codegen_->emit(PUSH, 0);
 		codegen_->emit(COMPARE, 3);
 	}
 }
 
-void Parser::boolean_term() {
-	boolean_factor();
-	while(see(T_AND)) {
-		next();
-		boolean_factor();
-		codegen_->emit(MULT);
-	}
-}
-
-void Parser::boolean_factor() {
-	if (match(T_LPAREN)) {
-		boolean_expression();
-		mustBe(T_RPAREN);
-	} else {
-		boolean_relation();
-	}
-}
-
-void Parser::boolean_relation() {
+void Parser::relation()
+{
 	//Условие сравнивает два выражения по какому-либо из знаков. Каждый знак имеет свой номер. В зависимости от
 	//результата сравнения на вершине стека окажется 0 или 1.
+	//if(match(T_LPAREN)) {
+		//logicalOrExpression();
+		//mustBe(T_RPAREN);
+		//return;
+	//}
+
 	expression();
 	if(see(T_CMP)) {
 		Cmp cmp = scanner_->getCmpValue();
@@ -297,10 +267,76 @@ void Parser::boolean_relation() {
 				break;
 		};
 	}
-	else {
-		reportError("comparison operator expected.");
-	}
 }
+
+//void Parser::boolean_expression() {
+	//boolean_term();
+	//while(see(T_OR)) {
+		//next();
+		//boolean_term();
+		//codegen_->emit(ADD);
+		//codegen_->emit(PUSH, 0);
+		//codegen_->emit(COMPARE, 3);
+	//}
+//}
+
+//void Parser::boolean_term() {
+	//boolean_factor();
+	//while(see(T_AND)) {
+		//next();
+		//boolean_factor();
+		//codegen_->emit(MULT);
+	//}
+//}
+
+//void Parser::boolean_factor() {
+	//if (match(T_LPAREN)) {
+		//boolean_expression();
+		//mustBe(T_RPAREN);
+	//} else {
+		//boolean_relation();
+	//}
+//}
+
+//void Parser::boolean_relation() {
+	////Условие сравнивает два выражения по какому-либо из знаков. Каждый знак имеет свой номер. В зависимости от
+	////результата сравнения на вершине стека окажется 0 или 1.
+	//expression();
+	//if(see(T_CMP)) {
+		//Cmp cmp = scanner_->getCmpValue();
+		//next();
+		//expression();
+		//switch(cmp) {
+			////для знака "=" - номер 0
+			//case C_EQ:
+				//codegen_->emit(COMPARE, 0);
+				//break;
+			////для знака "!=" - номер 1
+			//case C_NE:
+				//codegen_->emit(COMPARE, 1);
+				//break;
+			////для знака "<" - номер 2
+			//case C_LT:
+				//codegen_->emit(COMPARE, 2);
+				//break;
+			////для знака ">" - номер 3
+			//case C_GT:
+				//codegen_->emit(COMPARE, 3);
+				//break;
+			////для знака "<=" - номер 4
+			//case C_LE:
+				//codegen_->emit(COMPARE, 4);
+				//break;
+			////для знака ">=" - номер 5
+			//case C_GE:
+				//codegen_->emit(COMPARE, 5);
+				//break;
+		//};
+	//}
+	//else {
+		//reportError("comparison operator expected.");
+	//}
+//}
 
 int Parser::findOrAddVariable(const string& var)
 {
