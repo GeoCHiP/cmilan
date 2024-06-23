@@ -19,7 +19,7 @@ int main(int argc, char** argv)
 
 	if(input) {
 		Parser p(argv[1], input);
-		p.parse();
+		p.Parse();
 		return EXIT_SUCCESS;
 	}
 	else {

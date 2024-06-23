@@ -30,77 +30,56 @@ class Parser {
 public:
     // The constructor creates instances of the lexical analyzer and code
     // generator.
-    Parser(const std::string &fileName, std::istream &input)
-        : output_(std::cout), error_(false), lastVar_(0) {
-        scanner_ = new Scanner(fileName, input);
-        codegen_ = new CodeGen(output_);
-        next();
-    }
+    Parser(const std::string &fileName, std::istream &input);
 
-    ~Parser() {
-        delete codegen_;
-        delete scanner_;
-    }
-
-    void parse();
+    void Parse();
 
 private:
+    using VarTable = std::map<std::string, int>;
+
     // Non-terminals
-    void program();
-    void statementList();
-    void statement();
-    void expression();
-    void term();
-    void factor();
-    void relation();
-    void logicalAndExpression();
-    void logicalOrExpression();
+    void Program();
+    void StatementList();
+    void Statement();
+    void Expression();
+    void Term();
+    void Factor();
+    void Relation();
+    void LogicalAndExpression();
+    void LogicalOrExpression();
 
     // Comparing the current token with the target. The current position in the
     // token stream does not change.
-    bool see(Token t) { return scanner_->GetCurrentToken() == t; }
+    bool See(Token t);
 
     // Checking the match of the current token with the target. If the token and
     // the target match, the token is removed from the stream.
-    bool match(Token t) {
-        if (scanner_->GetCurrentToken() == t) {
-            scanner_->ExtractNextToken();
-            return true;
-        } else {
-            return false;
-        }
-    }
+    bool Match(Token t);
 
-    void next() { scanner_->ExtractNextToken(); }
+    void Next();
 
-    void reportError(const std::string &message) {
-        std::cerr << "Line " << scanner_->GetLineNumber() << ": " << message
-                  << std::endl;
-        error_ = true;
-    }
+    void ReportError(const std::string &message);
 
     // Check if this token matches the target. If so, the token is removed from
     // the stream. Otherwise, we create an error message and try to recover.
-    void mustBe(Token t);
+    void MustBe(Token t);
 
     // Error recovery: analyze the code until we meet this token or
     // the end-of-file token.
-    void recover(Token t);
+    void Recover(Token t);
 
     // If it finds the desired variable, it returns its number, otherwise it
     // adds the variable to the array, increases lastVar and returns it.
-    int findOrAddVariable(const std::string &variableName);
-
-    using VarTable = std::map<std::string, int>;
+    int FindOrAddVariable(const std::string &variableName);
 
 private:
-    Scanner *scanner_;
-    CodeGen *codegen_;
-    std::ostream &output_;
-    bool error_;
-    VarTable variables_;
+    std::ostream &m_OutputStream;
+    Scanner m_Scanner;
+    CodeGen m_Codegen;
+    VarTable m_Variables;
+    bool m_IsError = false;
 	// the number of the last recorded variable
-    int lastVar_;
+    int m_LastVariable = 0;
 };
 
 #endif

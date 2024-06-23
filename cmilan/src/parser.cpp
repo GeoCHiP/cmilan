@@ -2,51 +2,80 @@
 
 #include "parser.h"
 
-void Parser::parse() {
-    program();
-    if (!error_) {
-        codegen_->flush();
+Parser::Parser(const std::string &fileName, std::istream &input)
+    : m_Scanner(fileName, input), m_OutputStream(std::cout),
+      m_Codegen(m_OutputStream) {
+    Next();
+}
+
+bool Parser::See(Token t) {
+    return m_Scanner.GetCurrentToken() == t;
+}
+
+bool Parser::Match(Token t) {
+    if (m_Scanner.GetCurrentToken() == t) {
+        m_Scanner.ExtractNextToken();
+        return true;
+    } else {
+        return false;
     }
 }
 
-void Parser::program() {
-    mustBe(T_BEGIN);
-    statementList();
-    mustBe(T_END);
-    codegen_->emit(STOP);
+void Parser::Next() {
+    m_Scanner.ExtractNextToken();
 }
 
-void Parser::statementList() {
+void Parser::ReportError(const std::string &message) {
+    std::cerr << "Line " << m_Scanner.GetLineNumber() << ": " << message
+              << std::endl;
+    m_IsError = true;
+}
+
+void Parser::Parse() {
+    Program();
+    if (!m_IsError) {
+        m_Codegen.flush();
+    }
+}
+
+void Parser::Program() {
+    MustBe(T_BEGIN);
+    StatementList();
+    MustBe(T_END);
+    m_Codegen.emit(STOP);
+}
+
+void Parser::StatementList() {
     // If the list of operators is empty, the next token will be one of the
     // possible "closing brackets": END, OD, ELSE, FI. In this case, the result
     // of parsing will be an empty block (its list of operators is null). If
     // the next token is not included in this list, then we consider it the
     // beginning of the operator and we call the statement method. The sign of
     // the last operator is the absence of a semicolon after the operator.
-    if (see(T_END) || see(T_OD) || see(T_ELSE) || see(T_FI)) {
+    if (See(T_END) || See(T_OD) || See(T_ELSE) || See(T_FI)) {
         return;
     } else {
         bool more = true;
         while (more) {
-            statement();
-            more = match(T_SEMICOLON);
+            Statement();
+            more = Match(T_SEMICOLON);
         }
     }
 }
 
-void Parser::statement() {
-    if (see(T_IDENTIFIER)) {
+void Parser::Statement() {
+    if (See(T_IDENTIFIER)) {
         // If we meet a variable, then we remember its address or add a new one
         // if we haven't met it. The next token should be assignment. Then
         // comes the expression block, which returns the value to the top of
         // the stack. We write this value to the address of our variable.
 
-        int varAddress = findOrAddVariable(scanner_->GetStringValue());
-        next();
-        mustBe(T_ASSIGN);
-        logicalOrExpression();
-        codegen_->emit(STORE, varAddress);
-    } else if (match(T_IF)) {
+        int varAddress = FindOrAddVariable(m_Scanner.GetStringValue());
+        Next();
+        MustBe(T_ASSIGN);
+        LogicalOrExpression();
+        m_Codegen.emit(STORE, varAddress);
+    } else if (Match(T_IF)) {
         // If an IF is encountered, then the condition must follow. There is a
         // 1 or 0 at the top of the stack, depending on the condition being
         // met. Then reserve a place for the conditional JUMP_NO transition to
@@ -54,64 +83,64 @@ void Parser::statement() {
         // transition address will become known only after the code for the
         // THEN block is generated.
 
-        logicalOrExpression();
+        LogicalOrExpression();
 
-        int jumpNoAddress = codegen_->reserve();
+        int jumpNoAddress = m_Codegen.reserve();
 
-        mustBe(T_THEN);
-        statementList();
-        if (match(T_ELSE)) {
+        MustBe(T_THEN);
+        StatementList();
+        if (Match(T_ELSE)) {
             // If there is an ELSE block, then in order not to execute it if
             // THEN is executed, we reserve a place for the JUMP command at the
             // end of this block.
-            int jumpAddress = codegen_->reserve();
+            int jumpAddress = m_Codegen.reserve();
 
             // Fill in the reserved space after checking the condition with the
             // instruction to go to the beginning of the ELSE block.
-            codegen_->emitAt(jumpNoAddress, JUMP_NO,
-                             codegen_->getCurrentAddress());
+            m_Codegen.emitAt(jumpNoAddress, JUMP_NO,
+                             m_Codegen.getCurrentAddress());
 
-            statementList();
+            StatementList();
 
             // Fill in the second address with an instruction to jump to the
             // end of the conditional ELSE block.
-            codegen_->emitAt(jumpAddress, JUMP, codegen_->getCurrentAddress());
+            m_Codegen.emitAt(jumpAddress, JUMP, m_Codegen.getCurrentAddress());
         } else {
             // If there is no ELSE block, then after checking the condition,
             // the following information will be written to the reserved
             // address conditional jump instruction to the end of the IF...THEN
             // statement
-            codegen_->emitAt(jumpNoAddress, JUMP_NO,
-                             codegen_->getCurrentAddress());
+            m_Codegen.emitAt(jumpNoAddress, JUMP_NO,
+                             m_Codegen.getCurrentAddress());
         }
-        mustBe(T_FI);
-    } else if (match(T_WHILE)) {
+        MustBe(T_FI);
+    } else if (Match(T_WHILE)) {
         // Save the address of the start of the condition check.
-        int conditionAddress = codegen_->getCurrentAddress();
+        int conditionAddress = m_Codegen.getCurrentAddress();
 
-        logicalOrExpression();
+        LogicalOrExpression();
 
         // Reserve a place for the conditional jump instruction to exit loop.
-        int jumpNoAddress = codegen_->reserve();
+        int jumpNoAddress = m_Codegen.reserve();
 
-        mustBe(T_DO);
-        statementList();
-        mustBe(T_OD);
+        MustBe(T_DO);
+        StatementList();
+        MustBe(T_OD);
 
         // Jump to the address of the loop condition.
-        codegen_->emit(JUMP, conditionAddress);
+        m_Codegen.emit(JUMP, conditionAddress);
 
         // Fill in the reserved address with the conditional jump instruction
         // to the operator following the loop.
-        codegen_->emitAt(jumpNoAddress, JUMP_NO,
-                         codegen_->getCurrentAddress());
-    } else if (match(T_WRITE)) {
-        mustBe(T_LPAREN);
-        expression();
-        mustBe(T_RPAREN);
-        codegen_->emit(PRINT);
+        m_Codegen.emitAt(jumpNoAddress, JUMP_NO,
+                         m_Codegen.getCurrentAddress());
+    } else if (Match(T_WRITE)) {
+        MustBe(T_LPAREN);
+        Expression();
+        MustBe(T_RPAREN);
+        m_Codegen.emit(PRINT);
     } else {
-        reportError("statement expected.");
+        ReportError("statement expected.");
     }
 }
 
@@ -124,17 +153,17 @@ void Parser::statement() {
  * We repeat this until we encounter a character other than '+' or '-'
  * following the term.
  */
-void Parser::expression() {
-    term();
-    while (see(T_ADDOP)) {
-        Arithmetic op = scanner_->GetArithmeticValue();
-        next();
-        term();
+void Parser::Expression() {
+    Term();
+    while (See(T_ADDOP)) {
+        Arithmetic op = m_Scanner.GetArithmeticValue();
+        Next();
+        Term();
 
         if (op == A_PLUS) {
-            codegen_->emit(ADD);
+            m_Codegen.emit(ADD);
         } else {
-            codegen_->emit(SUB);
+            m_Codegen.emit(SUB);
         }
     }
 }
@@ -148,17 +177,17 @@ void Parser::expression() {
  * factor. We repeat checking and parsing the next factor until we find a
  * symbol other than '*' and '/' following it.
  */
-void Parser::term() {
-    factor();
-    while (see(T_MULOP)) {
-        Arithmetic op = scanner_->GetArithmeticValue();
-        next();
-        factor();
+void Parser::Term() {
+    Factor();
+    while (See(T_MULOP)) {
+        Arithmetic op = m_Scanner.GetArithmeticValue();
+        Next();
+        Factor();
 
         if (op == A_MULTIPLY) {
-            codegen_->emit(MULT);
+            m_Codegen.emit(MULT);
         } else {
-            codegen_->emit(DIV);
+            m_Codegen.emit(DIV);
         }
     }
 }
@@ -167,181 +196,181 @@ void Parser::term() {
  * Factor is described by the following rules:
  *  <factor> -> number | identifier | -<factor> | (<expression>) | READ
  */
-void Parser::factor() {
-    if (see(T_NUMBER)) {
-        int value = scanner_->GetIntValue();
-        next();
-        codegen_->emit(PUSH, value);
-    } else if (see(T_TRUE)) {
-        next();
-        codegen_->emit(PUSH, 1);
-    } else if (see(T_FALSE)) {
-        next();
-        codegen_->emit(PUSH, 0);
-    } else if (see(T_IDENTIFIER)) {
-        int varAddress = findOrAddVariable(scanner_->GetStringValue());
-        next();
-        codegen_->emit(LOAD, varAddress);
-    } else if (see(T_ADDOP) && scanner_->GetArithmeticValue() == A_MINUS) {
-        next();
-        factor();
-        codegen_->emit(INVERT);
-    } else if (match(T_LPAREN)) {
-        logicalOrExpression();
-        mustBe(T_RPAREN);
-    } else if (match(T_NOT)) {
-        factor();
-        codegen_->emit(PUSH, 0);
-        codegen_->emit(COMPARE, 0);
-    } else if (match(T_READ)) {
-        codegen_->emit(INPUT);
+void Parser::Factor() {
+    if (See(T_NUMBER)) {
+        int value = m_Scanner.GetIntValue();
+        Next();
+        m_Codegen.emit(PUSH, value);
+    } else if (See(T_TRUE)) {
+        Next();
+        m_Codegen.emit(PUSH, 1);
+    } else if (See(T_FALSE)) {
+        Next();
+        m_Codegen.emit(PUSH, 0);
+    } else if (See(T_IDENTIFIER)) {
+        int varAddress = FindOrAddVariable(m_Scanner.GetStringValue());
+        Next();
+        m_Codegen.emit(LOAD, varAddress);
+    } else if (See(T_ADDOP) && m_Scanner.GetArithmeticValue() == A_MINUS) {
+        Next();
+        Factor();
+        m_Codegen.emit(INVERT);
+    } else if (Match(T_LPAREN)) {
+        LogicalOrExpression();
+        MustBe(T_RPAREN);
+    } else if (Match(T_NOT)) {
+        Factor();
+        m_Codegen.emit(PUSH, 0);
+        m_Codegen.emit(COMPARE, 0);
+    } else if (Match(T_READ)) {
+        m_Codegen.emit(INPUT);
     } else {
-        reportError("expression expected.");
+        ReportError("expression expected.");
     }
 }
 
-void Parser::logicalAndExpression() {
-    relation();
-    while (see(T_LAND)) {
-        next();
-        relation();
-        codegen_->emit(MULT);
+void Parser::LogicalAndExpression() {
+    Relation();
+    while (See(T_LAND)) {
+        Next();
+        Relation();
+        m_Codegen.emit(MULT);
     }
 
     std::vector<int> jumpFalseAddresses;
     bool has_and = false;
-    while (see(T_AND)) {
+    while (See(T_AND)) {
         has_and = true;
-        next();
+        Next();
 
-        codegen_->emit(PUSH, 0);
-        codegen_->emit(COMPARE, 0);
-        jumpFalseAddresses.push_back(codegen_->reserve());
+        m_Codegen.emit(PUSH, 0);
+        m_Codegen.emit(COMPARE, 0);
+        jumpFalseAddresses.push_back(m_Codegen.reserve());
 
-        relation();
+        Relation();
     }
 
     if (has_and) {
-        codegen_->emit(PUSH, 0);
-        codegen_->emit(COMPARE, 0);
-        jumpFalseAddresses.push_back(codegen_->reserve());
+        m_Codegen.emit(PUSH, 0);
+        m_Codegen.emit(COMPARE, 0);
+        jumpFalseAddresses.push_back(m_Codegen.reserve());
 
-        codegen_->emit(PUSH, 1);
-        int jumpTrueAddress = codegen_->reserve();
+        m_Codegen.emit(PUSH, 1);
+        int jumpTrueAddress = m_Codegen.reserve();
 
         for (int jumpFalseAddress : jumpFalseAddresses) {
-            codegen_->emitAt(jumpFalseAddress, JUMP_YES,
-                             codegen_->getCurrentAddress());
+            m_Codegen.emitAt(jumpFalseAddress, JUMP_YES,
+                             m_Codegen.getCurrentAddress());
         }
 
-        codegen_->emit(PUSH, 0);
-        codegen_->emitAt(jumpTrueAddress, JUMP, codegen_->getCurrentAddress());
+        m_Codegen.emit(PUSH, 0);
+        m_Codegen.emitAt(jumpTrueAddress, JUMP, m_Codegen.getCurrentAddress());
     }
 }
 
-void Parser::logicalOrExpression() {
-    logicalAndExpression();
-    while (see(T_LOR)) {
-        next();
-        logicalAndExpression();
-        codegen_->emit(ADD);
-        codegen_->emit(PUSH, 0);
-        codegen_->emit(COMPARE, 3);
+void Parser::LogicalOrExpression() {
+    LogicalAndExpression();
+    while (See(T_LOR)) {
+        Next();
+        LogicalAndExpression();
+        m_Codegen.emit(ADD);
+        m_Codegen.emit(PUSH, 0);
+        m_Codegen.emit(COMPARE, 3);
     }
 
     std::vector<int> jumpTrueAddresses;
     bool has_or = false;
-    while (see(T_OR)) {
+    while (See(T_OR)) {
         has_or = true;
-        next();
+        Next();
 
-        codegen_->emit(PUSH, 1);
-        codegen_->emit(COMPARE, 0);
-        jumpTrueAddresses.push_back(codegen_->reserve());
+        m_Codegen.emit(PUSH, 1);
+        m_Codegen.emit(COMPARE, 0);
+        jumpTrueAddresses.push_back(m_Codegen.reserve());
 
-        relation();
+        Relation();
     }
 
     if (has_or) {
-        codegen_->emit(PUSH, 1);
-        codegen_->emit(COMPARE, 0);
-        jumpTrueAddresses.push_back(codegen_->reserve());
+        m_Codegen.emit(PUSH, 1);
+        m_Codegen.emit(COMPARE, 0);
+        jumpTrueAddresses.push_back(m_Codegen.reserve());
 
-        codegen_->emit(PUSH, 0);
-        int jumpFalseAddress = codegen_->reserve();
+        m_Codegen.emit(PUSH, 0);
+        int jumpFalseAddress = m_Codegen.reserve();
 
         for (int jumpFalseAddress : jumpTrueAddresses) {
-            codegen_->emitAt(jumpFalseAddress, JUMP_YES,
-                             codegen_->getCurrentAddress());
+            m_Codegen.emitAt(jumpFalseAddress, JUMP_YES,
+                             m_Codegen.getCurrentAddress());
         }
 
-        codegen_->emit(PUSH, 1);
-        codegen_->emitAt(jumpFalseAddress, JUMP,
-                         codegen_->getCurrentAddress());
+        m_Codegen.emit(PUSH, 1);
+        m_Codegen.emitAt(jumpFalseAddress, JUMP,
+                         m_Codegen.getCurrentAddress());
     }
 }
 
 // The condition compares two expressions.
 // Depending on the result of the comparison
 // at the top of the stack it will be 0 or 1.
-void Parser::relation() {
-    expression();
-    if (see(T_CMP)) {
-        Cmp cmp = scanner_->GetCmpValue();
-        next();
-        expression();
+void Parser::Relation() {
+    Expression();
+    if (See(T_CMP)) {
+        Cmp cmp = m_Scanner.GetCmpValue();
+        Next();
+        Expression();
         switch (cmp) {
         case C_EQ:
-            codegen_->emit(COMPARE, 0);
+            m_Codegen.emit(COMPARE, 0);
             break;
         case C_NE:
-            codegen_->emit(COMPARE, 1);
+            m_Codegen.emit(COMPARE, 1);
             break;
         case C_LT:
-            codegen_->emit(COMPARE, 2);
+            m_Codegen.emit(COMPARE, 2);
             break;
         case C_GT:
-            codegen_->emit(COMPARE, 3);
+            m_Codegen.emit(COMPARE, 3);
             break;
         case C_LE:
-            codegen_->emit(COMPARE, 4);
+            m_Codegen.emit(COMPARE, 4);
             break;
         case C_GE:
-            codegen_->emit(COMPARE, 5);
+            m_Codegen.emit(COMPARE, 5);
             break;
         };
     }
 }
 
-int Parser::findOrAddVariable(const std::string &var) {
-    VarTable::iterator it = variables_.find(var);
-    if (it == variables_.end()) {
-        variables_[var] = lastVar_;
-        return lastVar_++;
+int Parser::FindOrAddVariable(const std::string &var) {
+    VarTable::iterator it = m_Variables.find(var);
+    if (it == m_Variables.end()) {
+        m_Variables[var] = m_LastVariable;
+        return m_LastVariable++;
     } else {
         return it->second;
     }
 }
 
-void Parser::mustBe(Token t) {
-    if (!match(t)) {
-        error_ = true;
+void Parser::MustBe(Token t) {
+    if (!Match(t)) {
+        m_IsError = true;
 
         std::ostringstream msg;
-        msg << TokenToString(scanner_->GetCurrentToken()) << " found while "
+        msg << TokenToString(m_Scanner.GetCurrentToken()) << " found while "
             << TokenToString(t) << " expected.";
-        reportError(msg.str());
+        ReportError(msg.str());
 
-        recover(t);
+        Recover(t);
     }
 }
 
-void Parser::recover(Token t) {
-    while (!see(t) && !see(T_EOF)) {
-        next();
+void Parser::Recover(Token t) {
+    while (!See(t) && !See(T_EOF)) {
+        Next();
     }
 
-    if (see(t)) {
-        next();
+    if (See(t)) {
+        Next();
     }
 }
