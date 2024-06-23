@@ -1,98 +1,103 @@
 #ifndef CMILAN_CODEGEN_H
 #define CMILAN_CODEGEN_H
 
-#include <vector>
 #include <iostream>
+#include <vector>
 
-// Инструкции виртуальной машины Милана
+// Milan virtual machine instructions.
+enum Instruction {
+    NOP,
+    // Stop vm, shut down program.
+    STOP,
+    // LOAD addr - load data word at adress addr onto the stack.
+    LOAD,
+    // STORE addr - store data word from top of the stack at address addr.
+    STORE,
+    // BLOAD addr - load data word at address addr onto the stack + value at the
+    // top of the stack.
+    BLOAD,
+    // BSTORE addr - store data word from top of the stack at address addr +
+    // value at the top of the stack.
+    BSTORE,
+    // PUSH n - push value n on the stack.
+    PUSH,
+    // Remove word from the stack.
+    POP,
+    // Copy word on the top of the stack.
+    DUP,
+    // Add two words from the stack and store the result on the stack.
+    ADD,
+    // Subtract two words from the stack and store the result on the stack.
+    SUB,
+    // Multiply two words from the stack and store the result on the stack.
+    MULT,
+    // Divide two words from the stack and store the result on the stack.
+    DIV,
+    // Change sign of the word on the stack.
+    INVERT,
 
-enum Instruction
-{
-	NOP,		// отсутствие операции
-	STOP,		// остановка машины, завершение работы программы
-	LOAD,		// LOAD addr - загрузка слова данных в стек из памяти по адресу addr
-	STORE,		// STORE addr - запись слова данных с вершины стека в память по адресу addr
-	BLOAD,		// BLOAD addr - загрузка слова данных в стек из памяти по адресу addr + значение на вершине стека
-	BSTORE,		// BSTORE addr - запись слова данных по адресу addr + значение на вершине стека
-	PUSH,		// PUSH n - загрузка в стек константы n
-	POP,		// удаление слова с вершины стека
-	DUP,		// копирование слова на вершине стека
-	ADD,		// сложение двух слов на вершине стека и запись результата вместо них
-	SUB,		// вычитание двух слов на вершине стека и запись результата вместо них
-	MULT,		// умножение двух слов на вершине стека и запись результата вместо них
-	DIV,		// деление двух слов на вершине стека и запись результата вместо них
-	INVERT,		// изменение знака слова на вершине стека
-	COMPARE,	// COMPARE cmp - сравнение двух слов на вершине стека с помощью операции сравнения с кодом cmp
-	JUMP,		// JUMP addr - безусловный переход по адресу addr
-	JUMP_YES,	// JUMP_YES addr - переход по адресу addr, если на вершине стека значение 1
-	JUMP_NO,	// JUMP_NO addr - переход по адресу addr, если на вершине стека значение 0
-	INPUT,		// чтение целого числа со стандартного ввода и загрузка его в стек
-	PRINT		// печать на стандартный вывод числа с вершины стека
+    // COMPARE cmp - compare two words from the stack with comparison operation
+    // cmp and store the result on the stack.
+    COMPARE,
+    // JUMP addr - unconditional jump to address addr.
+    JUMP,
+    // JUMP_YES addr - jump to addr if 1 is on the top of the stack.
+    JUMP_YES,
+    // JUMP_NO addr - jump to addr if 0 is on the top of the stack.
+    JUMP_NO,
+    // Read integer from stdin and store on the stack.
+    INPUT,
+    // Print integer from the stack to stdout
+    PRINT
 };
 
-// Класс Command представляет машинные инструкции.
-
-class Command
-{
+class Command {
 public:
-	// Конструктор для инструкций без аргументов
-	Command(Instruction instruction)
-		: instruction_(instruction), arg_(0)
-	{}
+    Command(Instruction instruction) : instruction_(instruction), arg_(0) {}
 
-	// Конструктор для инструкций с одним аргументом
-	Command(Instruction instruction, int arg)
-		: instruction_(instruction), arg_(arg)
-	{}
+    Command(Instruction instruction, int arg)
+        : instruction_(instruction), arg_(arg) {}
 
-	// Печать инструкции
-	//     int address - адрес инструкции
-	//     ostream& os - поток вывода, куда будет напечатана инструкция
-	void print(int address, std::ostream& os);
+    void print(int address, std::ostream &os);
 
 private:
-	Instruction instruction_; // Код инструкции
-	int arg_;				  // Аргумент инструкции
+    Instruction instruction_;
+    int arg_;
 };
 
-// Кодогенератор.
-// Назначение кодогенератора:
-// - Формировать программу для виртуальной машины Милана
-// - Отслеживать адрес последней инструкции
-// - Буферизовать программу и печатать ее в указанный поток вывода
-
-class CodeGen
-{
+// Code generator.
+// Used for:
+// - Build a program for Milan virtual machine.
+// - Keep track of the last instruction address.
+// - Buffer the program and print to the output stream.
+class CodeGen {
 public:
-	explicit CodeGen(std::ostream& output)
-		: output_(output)
-	{
-	}
+    explicit CodeGen(std::ostream &output) : output_(output) {}
 
-	// Добавление инструкции без аргументов в конец программы
-	void emit(Instruction instruction);
+    // Append instruction without arguments to the program.
+    void emit(Instruction instruction);
 
-	// Добавление инструкции с одним аргументом в конец программы
-	void emit(Instruction instruction, int arg);
+    // Append instruction with one arguments to the program.
+    void emit(Instruction instruction, int arg);
 
-	// Запись инструкции без аргументов по указанному адресу
-	void emitAt(int address, Instruction instruction);
+    // Set instruction without arguments at the specified address.
+    void emitAt(int address, Instruction instruction);
 
-	// Запись инструкции с одним аргументом по указанному адресу
-	void emitAt(int address, Instruction instruction, int arg);
+    // Set instruction with one argument at the specified address.
+    void emitAt(int address, Instruction instruction, int arg);
 
-	// Получение адреса, непосредственно следующего за последней инструкцией в программе
-	int getCurrentAddress();
+    // Get address after the last instruction.
+    int getCurrentAddress();
 
-	// Формирование "пустой" инструкции (NOP) и возврат ее адреса
-	int reserve();
+    // Generate an "empty" instruction (NOP) and return its address.
+    int reserve();
 
-	// Запись последовательности инструкций в выходной поток
-	void flush();
+    // Output instructions to the stream.
+    void flush();
 
 private:
-	std::ostream& output_;               // Выходной поток
-	std::vector<Command> commandBuffer_;	// Буфер инструкций
+    std::ostream &output_;
+    std::vector<Command> commandBuffer_;
 };
 
 #endif

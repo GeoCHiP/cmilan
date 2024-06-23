@@ -1,361 +1,347 @@
-#include "parser.h"
 #include <sstream>
 
-//Выполняем синтаксический разбор блока program. Если во время разбора не обнаруживаем
-//никаких ошибок, то выводим последовательность команд стек-машины
-void Parser::parse()
-{
-	program();
-	if(!error_) {
-		codegen_->flush();
-	}
+#include "parser.h"
+
+void Parser::parse() {
+    program();
+    if (!error_) {
+        codegen_->flush();
+    }
 }
 
-void Parser::program()
-{
-	mustBe(T_BEGIN);
-	statementList();
-	mustBe(T_END);
-	codegen_->emit(STOP);
+void Parser::program() {
+    mustBe(T_BEGIN);
+    statementList();
+    mustBe(T_END);
+    codegen_->emit(STOP);
 }
 
-void Parser::statementList()
-{
-	//	  Если список операторов пуст, очередной лексемой будет одна из возможных "закрывающих скобок": END, OD, ELSE, FI.
-	//	  В этом случае результатом разбора будет пустой блок (его список операторов равен null).
-	//	  Если очередная лексема не входит в этот список, то ее мы считаем началом оператора и вызываем метод statement.
-	//    Признаком последнего оператора является отсутствие после оператора точки с запятой.
-	if(see(T_END) || see(T_OD) || see(T_ELSE) || see(T_FI)) {
-		return;
-	}
-	else {
-		bool more = true;
-		while(more) {
-			statement();
-			more = match(T_SEMICOLON);
-		}
-	}
+void Parser::statementList() {
+    // If the list of operators is empty, the next token will be one of the
+    // possible "closing brackets": END, OD, ELSE, FI. In this case, the result
+    // of parsing will be an empty block (its list of operators is null). If
+    // the next token is not included in this list, then we consider it the
+    // beginning of the operator and we call the statement method. The sign of
+    // the last operator is the absence of a semicolon after the operator.
+    if (see(T_END) || see(T_OD) || see(T_ELSE) || see(T_FI)) {
+        return;
+    } else {
+        bool more = true;
+        while (more) {
+            statement();
+            more = match(T_SEMICOLON);
+        }
+    }
 }
 
-void Parser::statement()
-{
-	// Если встречаем переменную, то запоминаем ее адрес или добавляем новую если не встретили.
-	// Следующей лексемой должно быть присваивание. Затем идет блок expression, который возвращает значение на вершину стека.
-	// Записываем это значение по адресу нашей переменной
-	if(see(T_IDENTIFIER)) {
-		int varAddress = findOrAddVariable(scanner_->getStringValue());
-		next();
-		mustBe(T_ASSIGN);
-		logicalOrExpression();
-		codegen_->emit(STORE, varAddress);
-	}
-	// Если встретили IF, то затем должно следовать условие. На вершине стека лежит 1 или 0 в зависимости от выполнения условия.
-	// Затем зарезервируем место для условного перехода JUMP_NO к блоку ELSE (переход в случае ложного условия). Адрес перехода
-	// станет известным только после того, как будет сгенерирован код для блока THEN.
-	else if(match(T_IF)) {
-		logicalOrExpression();
+void Parser::statement() {
+    if (see(T_IDENTIFIER)) {
+        // If we meet a variable, then we remember its address or add a new one
+        // if we haven't met it. The next token should be assignment. Then
+        // comes the expression block, which returns the value to the top of
+        // the stack. We write this value to the address of our variable.
 
-		int jumpNoAddress = codegen_->reserve();
+        int varAddress = findOrAddVariable(scanner_->getStringValue());
+        next();
+        mustBe(T_ASSIGN);
+        logicalOrExpression();
+        codegen_->emit(STORE, varAddress);
+    } else if (match(T_IF)) {
+        // If an IF is encountered, then the condition must follow. There is a
+        // 1 or 0 at the top of the stack, depending on the condition being
+        // met. Then reserve a place for the conditional JUMP_NO transition to
+        // the ELSE block (transition in case of a false condition). The
+        // transition address will become known only after the code for the
+        // THEN block is generated.
 
-		mustBe(T_THEN);
-		statementList();
-		if(match(T_ELSE)) {
-		//Если есть блок ELSE, то чтобы не выполнять его в случае выполнения THEN,
-		//зарезервируем место для команды JUMP в конец этого блока
-			int jumpAddress = codegen_->reserve();
-		//Заполним зарезервированное место после проверки условия инструкцией перехода в начало блока ELSE.
-			codegen_->emitAt(jumpNoAddress, JUMP_NO, codegen_->getCurrentAddress());
-			statementList();
-		//Заполним второй адрес инструкцией перехода в конец условного блока ELSE.
-			codegen_->emitAt(jumpAddress, JUMP, codegen_->getCurrentAddress());
-		}
-		else {
-		//Если блок ELSE отсутствует, то в зарезервированный адрес после проверки условия будет записана
-		//инструкция условного перехода в конец оператора IF...THEN
-			codegen_->emitAt(jumpNoAddress, JUMP_NO, codegen_->getCurrentAddress());
-		}
+        logicalOrExpression();
 
-		mustBe(T_FI);
-	}
+        int jumpNoAddress = codegen_->reserve();
 
-	else if(match(T_WHILE)) {
-		//запоминаем адрес начала проверки условия.
-		int conditionAddress = codegen_->getCurrentAddress();
-		logicalOrExpression();
-		//резервируем место под инструкцию условного перехода для выхода из цикла.
-		int jumpNoAddress = codegen_->reserve();
-		mustBe(T_DO);
-		statementList();
-		mustBe(T_OD);
-		//переходим по адресу проверки условия
-		codegen_->emit(JUMP, conditionAddress);
-		//заполняем зарезервированный адрес инструкцией условного перехода на следующий за циклом оператор.
-		codegen_->emitAt(jumpNoAddress, JUMP_NO, codegen_->getCurrentAddress());
-	}
-	else if(match(T_WRITE)) {
-		mustBe(T_LPAREN);
-		expression();
-		mustBe(T_RPAREN);
-		codegen_->emit(PRINT);
-	}
-	else {
-		reportError("statement expected.");
-	}
+        mustBe(T_THEN);
+        statementList();
+        if (match(T_ELSE)) {
+            // If there is an ELSE block, then in order not to execute it if
+            // THEN is executed, we reserve a place for the JUMP command at the
+            // end of this block.
+            int jumpAddress = codegen_->reserve();
+
+            // Fill in the reserved space after checking the condition with the
+            // instruction to go to the beginning of the ELSE block.
+            codegen_->emitAt(jumpNoAddress, JUMP_NO,
+                             codegen_->getCurrentAddress());
+
+            statementList();
+
+            // Fill in the second address with an instruction to jump to the
+            // end of the conditional ELSE block.
+            codegen_->emitAt(jumpAddress, JUMP, codegen_->getCurrentAddress());
+        } else {
+            // If there is no ELSE block, then after checking the condition,
+            // the following information will be written to the reserved
+            // address conditional jump instruction to the end of the IF...THEN
+            // statement
+            codegen_->emitAt(jumpNoAddress, JUMP_NO,
+                             codegen_->getCurrentAddress());
+        }
+        mustBe(T_FI);
+    } else if (match(T_WHILE)) {
+        // Save the address of the start of the condition check.
+        int conditionAddress = codegen_->getCurrentAddress();
+
+        logicalOrExpression();
+
+        // Reserve a place for the conditional jump instruction to exit loop.
+        int jumpNoAddress = codegen_->reserve();
+
+        mustBe(T_DO);
+        statementList();
+        mustBe(T_OD);
+
+        // Jump to the address of the loop condition.
+        codegen_->emit(JUMP, conditionAddress);
+
+        // Fill in the reserved address with the conditional jump instruction
+        // to the operator following the loop.
+        codegen_->emitAt(jumpNoAddress, JUMP_NO,
+                         codegen_->getCurrentAddress());
+    } else if (match(T_WRITE)) {
+        mustBe(T_LPAREN);
+        expression();
+        mustBe(T_RPAREN);
+        codegen_->emit(PRINT);
+    } else {
+        reportError("statement expected.");
+    }
 }
 
-void Parser::expression()
-{
+/*
+ * An arithmetic expression is described by the following rules:
+ * 	<expression> -> <term> | <term> + <term> | <term> - <term>
+ *
+ * When parsing, we first look at the first term, then analyze the next symbol.
+ * If it is '+' or '-', we remove it from the stream and analyze the next term.
+ * We repeat this until we encounter a character other than '+' or '-'
+ * following the term.
+ */
+void Parser::expression() {
+    term();
+    while (see(T_ADDOP)) {
+        Arithmetic op = scanner_->getArithmeticValue();
+        next();
+        term();
 
-	 /*
-         Арифметическое выражение описывается следующими правилами: <expression> -> <term> | <term> + <term> | <term> - <term>
-         При разборе сначала смотрим первый терм, затем анализируем очередной символ. Если это '+' или '-',
-		 удаляем его из потока и разбираем очередное слагаемое (вычитаемое). Повторяем проверку и разбор очередного
-		 терма, пока не встретим за термом символ, отличный от '+' и '-'
-     */
-
-	term();
-	while(see(T_ADDOP)) {
-		Arithmetic op = scanner_->getArithmeticValue();
-		next();
-		term();
-
-		if(op == A_PLUS) {
-			codegen_->emit(ADD);
-		}
-		else {
-			codegen_->emit(SUB);
-		}
-	}
+        if (op == A_PLUS) {
+            codegen_->emit(ADD);
+        } else {
+            codegen_->emit(SUB);
+        }
+    }
 }
 
-void Parser::term()
-{
-	 /*
-		 Терм описывается следующими правилами: <expression> -> <factor> | <factor> + <factor> | <factor> - <factor>
-         При разборе сначала смотрим первый множитель, затем анализируем очередной символ. Если это '*' или '/',
-		 удаляем его из потока и разбираем очередное слагаемое (вычитаемое). Повторяем проверку и разбор очередного
-		 множителя, пока не встретим за ним символ, отличный от '*' и '/'
-	*/
-	factor();
-	while(see(T_MULOP)) {
-		Arithmetic op = scanner_->getArithmeticValue();
-		next();
-		factor();
+/*
+ * The term is described by the following rules:
+ *	<expression> -> <factor> | <factor> + <factor> | <factor> - <factor>
+ *
+ * When parsing, we first look at the first factor, then analyze the next
+ * symbol. If it is '*' or '/', remove it from the stream and parse the next
+ * factor. We repeat checking and parsing the next factor until we find a
+ * symbol other than '*' and '/' following it.
+ */
+void Parser::term() {
+    factor();
+    while (see(T_MULOP)) {
+        Arithmetic op = scanner_->getArithmeticValue();
+        next();
+        factor();
 
-		if(op == A_MULTIPLY) {
-			codegen_->emit(MULT);
-		}
-		else {
-			codegen_->emit(DIV);
-		}
-	}
+        if (op == A_MULTIPLY) {
+            codegen_->emit(MULT);
+        } else {
+            codegen_->emit(DIV);
+        }
+    }
 }
 
-void Parser::factor()
-{
-	/*
-		Множитель описывается следующими правилами:
-		<factor> -> number | identifier | -<factor> | (<expression>) | READ
-	*/
-	if(see(T_NUMBER)) {
-		int value = scanner_->getIntValue();
-		next();
-		codegen_->emit(PUSH, value);
-		//Если встретили число, то преобразуем его в целое и записываем на вершину стека
-	}
-	else if(see(T_TRUE)) {
-		next();
-		codegen_->emit(PUSH, 1);
-	}
-	else if(see(T_FALSE)) {
-		next();
-		codegen_->emit(PUSH, 0);
-	}
-	else if(see(T_IDENTIFIER)) {
-		int varAddress = findOrAddVariable(scanner_->getStringValue());
-		next();
-		codegen_->emit(LOAD, varAddress);
-		//Если встретили переменную, то выгружаем значение, лежащее по ее адресу, на вершину стека
-	}
-	else if(see(T_ADDOP) && scanner_->getArithmeticValue() == A_MINUS) {
-		next();
-		factor();
-		codegen_->emit(INVERT);
-		//Если встретили знак "-", и за ним <factor> то инвертируем значение, лежащее на вершине стека
-	}
-	else if(match(T_LPAREN)) {
-		logicalOrExpression();
-		mustBe(T_RPAREN);
-		//Если встретили открывающую скобку, тогда следом может идти любое арифметическое выражение и обязательно
-		//закрывающая скобка.
-	}
-	else if(match(T_NOT)) {
-		factor();
-		codegen_->emit(PUSH, 0);
-		codegen_->emit(COMPARE, 0);
-	}
-	else if(match(T_READ)) {
-		codegen_->emit(INPUT);
-		//Если встретили зарезервированное слово READ, то записываем на вершину стека идет запись со стандартного ввода
-	}
-	else {
-		reportError("expression expected.");
-	}
+/*
+ * Factor is described by the following rules:
+ *  <factor> -> number | identifier | -<factor> | (<expression>) | READ
+ */
+void Parser::factor() {
+    if (see(T_NUMBER)) {
+        int value = scanner_->getIntValue();
+        next();
+        codegen_->emit(PUSH, value);
+    } else if (see(T_TRUE)) {
+        next();
+        codegen_->emit(PUSH, 1);
+    } else if (see(T_FALSE)) {
+        next();
+        codegen_->emit(PUSH, 0);
+    } else if (see(T_IDENTIFIER)) {
+        int varAddress = findOrAddVariable(scanner_->getStringValue());
+        next();
+        codegen_->emit(LOAD, varAddress);
+    } else if (see(T_ADDOP) && scanner_->getArithmeticValue() == A_MINUS) {
+        next();
+        factor();
+        codegen_->emit(INVERT);
+    } else if (match(T_LPAREN)) {
+        logicalOrExpression();
+        mustBe(T_RPAREN);
+    } else if (match(T_NOT)) {
+        factor();
+        codegen_->emit(PUSH, 0);
+        codegen_->emit(COMPARE, 0);
+    } else if (match(T_READ)) {
+        codegen_->emit(INPUT);
+    } else {
+        reportError("expression expected.");
+    }
 }
 
-void Parser::logicalAndExpression()
-{
-	relation();
-	while(see(T_LAND)) {
-		next();
-		relation();
-		codegen_->emit(MULT);
-	}
+void Parser::logicalAndExpression() {
+    relation();
+    while (see(T_LAND)) {
+        next();
+        relation();
+        codegen_->emit(MULT);
+    }
 
-	std::vector<int> jumpFalseAddresses;
-	bool has_and = false;
-	while(see(T_AND)) {
-		has_and = true;
-		next();
+    std::vector<int> jumpFalseAddresses;
+    bool has_and = false;
+    while (see(T_AND)) {
+        has_and = true;
+        next();
 
-		codegen_->emit(PUSH, 0);
-		codegen_->emit(COMPARE, 0);
-		jumpFalseAddresses.push_back(codegen_->reserve());
+        codegen_->emit(PUSH, 0);
+        codegen_->emit(COMPARE, 0);
+        jumpFalseAddresses.push_back(codegen_->reserve());
 
-		relation();
-	}
+        relation();
+    }
 
-	if(has_and) {
-		codegen_->emit(PUSH, 0);
-		codegen_->emit(COMPARE, 0);
-		jumpFalseAddresses.push_back(codegen_->reserve());
+    if (has_and) {
+        codegen_->emit(PUSH, 0);
+        codegen_->emit(COMPARE, 0);
+        jumpFalseAddresses.push_back(codegen_->reserve());
 
-		codegen_->emit(PUSH, 1);
-		int jumpTrueAddress = codegen_->reserve();
+        codegen_->emit(PUSH, 1);
+        int jumpTrueAddress = codegen_->reserve();
 
-		for (int jumpFalseAddress : jumpFalseAddresses) {
-			codegen_->emitAt(jumpFalseAddress, JUMP_YES, codegen_->getCurrentAddress());
-		}
+        for (int jumpFalseAddress : jumpFalseAddresses) {
+            codegen_->emitAt(jumpFalseAddress, JUMP_YES,
+                             codegen_->getCurrentAddress());
+        }
 
-		codegen_->emit(PUSH, 0);
-		codegen_->emitAt(jumpTrueAddress, JUMP, codegen_->getCurrentAddress());
-	}
+        codegen_->emit(PUSH, 0);
+        codegen_->emitAt(jumpTrueAddress, JUMP, codegen_->getCurrentAddress());
+    }
 }
 
-void Parser::logicalOrExpression()
-{
-	logicalAndExpression();
-	while(see(T_LOR)) {
-		next();
-		logicalAndExpression();
-		codegen_->emit(ADD);
-		codegen_->emit(PUSH, 0);
-		codegen_->emit(COMPARE, 3);
-	}
+void Parser::logicalOrExpression() {
+    logicalAndExpression();
+    while (see(T_LOR)) {
+        next();
+        logicalAndExpression();
+        codegen_->emit(ADD);
+        codegen_->emit(PUSH, 0);
+        codegen_->emit(COMPARE, 3);
+    }
 
-	std::vector<int> jumpTrueAddresses;
-	bool has_or = false;
-	while(see(T_OR)) {
-		has_or = true;
-		next();
+    std::vector<int> jumpTrueAddresses;
+    bool has_or = false;
+    while (see(T_OR)) {
+        has_or = true;
+        next();
 
-		codegen_->emit(PUSH, 1);
-		codegen_->emit(COMPARE, 0);
-		jumpTrueAddresses.push_back(codegen_->reserve());
+        codegen_->emit(PUSH, 1);
+        codegen_->emit(COMPARE, 0);
+        jumpTrueAddresses.push_back(codegen_->reserve());
 
-		relation();
-	}
+        relation();
+    }
 
-	if(has_or) {
-		codegen_->emit(PUSH, 1);
-		codegen_->emit(COMPARE, 0);
-		jumpTrueAddresses.push_back(codegen_->reserve());
+    if (has_or) {
+        codegen_->emit(PUSH, 1);
+        codegen_->emit(COMPARE, 0);
+        jumpTrueAddresses.push_back(codegen_->reserve());
 
-		codegen_->emit(PUSH, 0);
-		int jumpFalseAddress = codegen_->reserve();
+        codegen_->emit(PUSH, 0);
+        int jumpFalseAddress = codegen_->reserve();
 
-		for (int jumpFalseAddress : jumpTrueAddresses) {
-			codegen_->emitAt(jumpFalseAddress, JUMP_YES, codegen_->getCurrentAddress());
-		}
+        for (int jumpFalseAddress : jumpTrueAddresses) {
+            codegen_->emitAt(jumpFalseAddress, JUMP_YES,
+                             codegen_->getCurrentAddress());
+        }
 
-		codegen_->emit(PUSH, 1);
-		codegen_->emitAt(jumpFalseAddress, JUMP, codegen_->getCurrentAddress());
-	}
+        codegen_->emit(PUSH, 1);
+        codegen_->emitAt(jumpFalseAddress, JUMP,
+                         codegen_->getCurrentAddress());
+    }
 }
 
-void Parser::relation()
-{
-	//Условие сравнивает два выражения по какому-либо из знаков. Каждый знак имеет свой номер. В зависимости от
-	//результата сравнения на вершине стека окажется 0 или 1.
-
-	expression();
-	if(see(T_CMP)) {
-		Cmp cmp = scanner_->getCmpValue();
-		next();
-		expression();
-		switch(cmp) {
-			//для знака "=" - номер 0
-			case C_EQ:
-				codegen_->emit(COMPARE, 0);
-				break;
-			//для знака "!=" - номер 1
-			case C_NE:
-				codegen_->emit(COMPARE, 1);
-				break;
-			//для знака "<" - номер 2
-			case C_LT:
-				codegen_->emit(COMPARE, 2);
-				break;
-			//для знака ">" - номер 3
-			case C_GT:
-				codegen_->emit(COMPARE, 3);
-				break;
-			//для знака "<=" - номер 4
-			case C_LE:
-				codegen_->emit(COMPARE, 4);
-				break;
-			//для знака ">=" - номер 5
-			case C_GE:
-				codegen_->emit(COMPARE, 5);
-				break;
-		};
-	}
+// The condition compares two expressions.
+// Depending on the result of the comparison
+// at the top of the stack it will be 0 or 1.
+void Parser::relation() {
+    expression();
+    if (see(T_CMP)) {
+        Cmp cmp = scanner_->getCmpValue();
+        next();
+        expression();
+        switch (cmp) {
+        case C_EQ:
+            codegen_->emit(COMPARE, 0);
+            break;
+        case C_NE:
+            codegen_->emit(COMPARE, 1);
+            break;
+        case C_LT:
+            codegen_->emit(COMPARE, 2);
+            break;
+        case C_GT:
+            codegen_->emit(COMPARE, 3);
+            break;
+        case C_LE:
+            codegen_->emit(COMPARE, 4);
+            break;
+        case C_GE:
+            codegen_->emit(COMPARE, 5);
+            break;
+        };
+    }
 }
 
-int Parser::findOrAddVariable(const std::string& var)
-{
-	VarTable::iterator it = variables_.find(var);
-	if(it == variables_.end()) {
-		variables_[var] = lastVar_;
-		return lastVar_++;
-	}
-	else {
-		return it->second;
-	}
+int Parser::findOrAddVariable(const std::string &var) {
+    VarTable::iterator it = variables_.find(var);
+    if (it == variables_.end()) {
+        variables_[var] = lastVar_;
+        return lastVar_++;
+    } else {
+        return it->second;
+    }
 }
 
-void Parser::mustBe(Token t)
-{
-	if(!match(t)) {
-		error_ = true;
+void Parser::mustBe(Token t) {
+    if (!match(t)) {
+        error_ = true;
 
-		// Подготовим сообщение об ошибке
-		std::ostringstream msg;
-		msg << tokenToString(scanner_->token()) << " found while " << tokenToString(t) << " expected.";
-		reportError(msg.str());
+        std::ostringstream msg;
+        msg << tokenToString(scanner_->token()) << " found while "
+            << tokenToString(t) << " expected.";
+        reportError(msg.str());
 
-		// Попытка восстановления после ошибки.
-		recover(t);
-	}
+        recover(t);
+    }
 }
 
-void Parser::recover(Token t)
-{
-	while(!see(t) && !see(T_EOF)) {
-		next();
-	}
+void Parser::recover(Token t) {
+    while (!see(t) && !see(T_EOF)) {
+        next();
+    }
 
-	if(see(t)) {
-		next();
-	}
+    if (see(t)) {
+        next();
+    }
 }

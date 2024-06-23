@@ -2,170 +2,128 @@
 #define CMILAN_SCANNER_H
 
 #include <fstream>
-#include <string>
 #include <map>
 
 enum Token {
-	T_EOF,			// Конец текстового потока
-	T_ILLEGAL,		// Признак недопустимого символа
-	T_IDENTIFIER,		// Идентификатор
-	T_NUMBER,		// Целочисленный литерал
-	T_BEGIN,		// Ключевое слово "begin"
-	T_END,			// Ключевое слово "end"
-	T_IF,			// Ключевое слово "if"
-	T_THEN,			// Ключевое слово "then"
-	T_ELSE,			// Ключевое слово "else"
-	T_FI,			// Ключевое слово "fi"
-	T_WHILE,		// Ключевое слово "while"
-	T_DO,			// Ключевое слово "do"
-	T_OD,			// Ключевое слово "od"
-	T_WRITE,		// Ключевое слово "write"
-	T_READ,			// Ключевое слово "read"
-	T_ASSIGN,		// Оператор ":="
-	T_ADDOP,		// Сводная лексема для "+" и "-" (операция типа сложения)
-	T_MULOP,		// Сводная лексема для "*" и "/" (операция типа умножения)
-	T_CMP,			// Сводная лексема для операторов отношения
-	T_LPAREN,		// Открывающая скобка
-	T_RPAREN,		// Закрывающая скобка
-	T_SEMICOLON,	// ";"
-	T_LAND,			// лексема для "&"
-	T_LOR,			// лексема для "|"
-	T_AND,			// лексема для "&&"
-	T_OR,			// лексема для "||"
-	T_NOT,			// лексема для "!"
-	T_TRUE,			// лексема для литерала true
-	T_FALSE,		// лексема для литерала false
+    T_EOF,
+    T_ILLEGAL,
+    T_IDENTIFIER,
+    T_NUMBER,
+    T_BEGIN,
+    T_END,
+    T_IF,
+    T_THEN,
+    T_ELSE,
+    T_FI,
+    T_WHILE,
+    T_DO,
+    T_OD,
+    T_WRITE,
+    T_READ,
+    T_ASSIGN,
+    T_ADDOP, // lexeme for "+" and "-"
+    T_MULOP, // lexeme for "*" and "/"
+    T_CMP,
+    T_LPAREN,
+    T_RPAREN,
+    T_SEMICOLON,
+    T_LAND, // lexeme for "&"
+    T_LOR,  // lexeme for "|"
+    T_AND,  // lexeme for "&&"
+    T_OR,   // lexeme for "||"
+    T_NOT,
+    T_TRUE,  // lexeme for "true"
+    T_FALSE, // lexeme for "false"
 };
 
-// Функция tokenToString возвращает описание лексемы.
-// Используется при печати сообщения об ошибке.
-const char * tokenToString(Token t);
+// Returns lexeme description.
+const char *tokenToString(Token t);
 
-// Виды операций сравнения
+// Type of comparison operation.
 enum Cmp {
-	C_EQ,   // Операция сравнения "="
-	C_NE,	// Операция сравнения "!="
-	C_LT,	// Операция сравнения "<"
-	C_LE,	// Операция сравнения "<="
-	C_GT,	// Операция сравнения ">"
-	C_GE	// Операция сравнения ">="
+    C_EQ,
+    C_NE,
+    C_LT,
+    C_LE,
+    C_GT,
+    C_GE,
 };
 
-// Виды арифметических операций
+// Type of arithmetic operation.
 enum Arithmetic {
-	A_PLUS,		//операция "+"
-	A_MINUS,	//операция "-"
-	A_MULTIPLY,	//операция "*"
-	A_DIVIDE	//операция "/"
+    A_PLUS,
+    A_MINUS,
+    A_MULTIPLY,
+    A_DIVIDE,
 };
 
-// Лексический анализатор
-
-class Scanner
-{
+// Lexial analyzer.
+class Scanner {
 public:
-	// Конструктор. В качестве аргумента принимает имя файла и поток,
-        // из которого будут читаться символы транслируемой программы.
+    explicit Scanner(const std::string &fileName, std::istream &input)
+        : fileName_(fileName), lineNumber_(1), input_(input) {
+        keywords_["begin"] = T_BEGIN;
+        keywords_["end"] = T_END;
+        keywords_["if"] = T_IF;
+        keywords_["then"] = T_THEN;
+        keywords_["else"] = T_ELSE;
+        keywords_["fi"] = T_FI;
+        keywords_["while"] = T_WHILE;
+        keywords_["do"] = T_DO;
+        keywords_["od"] = T_OD;
+        keywords_["write"] = T_WRITE;
+        keywords_["read"] = T_READ;
+        keywords_["true"] = T_TRUE;
+        keywords_["false"] = T_FALSE;
 
-	explicit Scanner(const std::string& fileName, std::istream& input)
-		: fileName_(fileName), lineNumber_(1), input_(input)
-	{
-		keywords_["begin"] = T_BEGIN;
-		keywords_["end"] = T_END;
-		keywords_["if"] = T_IF;
-		keywords_["then"] = T_THEN;
-		keywords_["else"] = T_ELSE;
-		keywords_["fi"] = T_FI;
-		keywords_["while"] = T_WHILE;
-		keywords_["do"] = T_DO;
-		keywords_["od"] = T_OD;
-		keywords_["write"] = T_WRITE;
-		keywords_["read"] = T_READ;
-		keywords_["true"] = T_TRUE;
-		keywords_["false"] = T_FALSE;
+        nextChar();
+    }
 
-		nextChar();
-	}
+    virtual ~Scanner() {}
 
-	// Деструктор
-	virtual ~Scanner()
-	{}
+    const std::string &getFileName() const { return fileName_; }
 
-	//getters всех private переменных
-	const std::string& getFileName() const //не используется
-	{
-		return fileName_;
-	}
+    int getLineNumber() const { return lineNumber_; }
 
-	int getLineNumber() const
-	{
-		return lineNumber_;
-	}
+    Token token() const { return token_; }
 
-	Token token() const
-	{
-		return token_;
-	}
+    int getIntValue() const { return intValue_; }
 
-	int getIntValue() const
-	{
-		return intValue_;
-	}
+    std::string getStringValue() const { return stringValue_; }
 
-	std::string getStringValue() const
-	{
-		return stringValue_;
-	}
+    Cmp getCmpValue() const { return cmpValue_; }
 
-	Cmp getCmpValue() const
-	{
-		return cmpValue_;
-	}
+    Arithmetic getArithmeticValue() const { return arithmeticValue_; }
 
-	Arithmetic getArithmeticValue() const
-	{
-		return arithmeticValue_;
-	}
+    // Exctract the next lexeme.
+    // Next lexeme is saved in token_ and extracted from the stream.
+    void nextToken();
 
-	// Переход к следующей лексеме.
-	// Текущая лексема записывается в token_ и изымается из потока.
-	void nextToken();
 private:
+    // Skip all the whitespace characters.
+    // If new-line character found, increment lineNumber_
+    void skipSpace();
 
-	// Пропуск всех пробельные символы.
-	// Если встречается символ перевода строки, номер текущей строки
-	// (lineNumber) увеличивается на единицу.
-	void skipSpace();
+    void nextChar();
 
+    bool isIdentifierStart(char c) {
+        return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+    }
 
- 	void nextChar(); //переходит к следующему символу
-	//проверка переменной на первый символ (должен быть буквой латинского алфавита)
-	bool isIdentifierStart(char c)
-	{
-		return ((c >= 'a' && c <= 'z') ||
-			    (c >= 'A' && c <= 'Z'));
-	}
-	//проверка на остальные символы переменной (буква или цифра)
-	bool isIdentifierBody(char c)
-	{
-		return isIdentifierStart(c) || isdigit(c);
-	}
+    bool isIdentifierBody(char c) { return isIdentifierStart(c) || isdigit(c); }
 
-
-	const std::string fileName_; //входной файл
-	int lineNumber_; //номер текущей строки кода
-
-	Token token_; //текущая лексема
-	int intValue_; //значение текущего целого
-	std::string stringValue_; //имя переменной
-	Cmp cmpValue_; //значение оператора сравнения (>, <, =, !=, >=, <=)
-	Arithmetic arithmeticValue_; //значение знака (+,-,*,/)
-
-	std::map<std::string, Token> keywords_; //ассоциативный массив с лексемами и
-	//соответствующими им зарезервированными словами в качестве индексов
-
-	std::istream& input_; //входной поток для чтения из файла.
-	char ch_; //текущий символ
+private:
+    const std::string fileName_;
+    int lineNumber_;
+    Token token_;
+    int intValue_;
+    // Variable name
+    std::string stringValue_;
+    Cmp cmpValue_;
+    Arithmetic arithmeticValue_;
+    std::map<std::string, Token> keywords_;
+    std::istream &input_;
+    char ch_;
 };
 
-#endif
+#endif // CMILAN_SCANNER_H

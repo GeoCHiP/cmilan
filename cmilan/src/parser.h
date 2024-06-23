@@ -1,118 +1,106 @@
 #ifndef CMILAN_PARSER_H
 #define CMILAN_PARSER_H
 
-#include "scanner.h"
 #include "codegen.h"
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <map>
+#include "scanner.h"
 
-/* Синтаксический анализатор.
+/* Parser.
  *
- * Задачи:
- * - проверка корректности программы,
- * - генерация кода для виртуальной машины в процессе анализа,
- * - простейшее восстановление после ошибок.
+ * Tasks:
+ * - checking the correctness of the program,
+ * - generating code for a virtual machine during analysis,
+ * - the simplest error recovery.
  *
- * Синтаксический анализатор языка Милан.
+ * The Milan language parser.
  *
- * Парсер с помощью переданного ему при инициализации лексического анализатора
- * читает по одной лексеме и на основе грамматики Милана генерирует код для
- * стековой виртуальной машины. Синтаксический анализ выполняется методом
- * рекурсивного спуска.
+ * Parser using the lexical analyzer passed to it during initialization
+ * reads one token at a time and generates code for a stack virtual machine
+ * based on Milan grammar. The syntactic analysis is performed by the
+ * recursive descent method.
  *
- * При обнаружении ошибки парсер печатает сообщение и продолжает анализ со
- * следующего оператора, чтобы в процессе разбора найти как можно больше ошибок.
- * Поскольку стратегия восстановления после ошибки очень проста, возможна печать
- * сообщений о несуществующих ("наведенных") ошибках или пропуск некоторых
- * ошибок без печати сообщений. Если в процессе разбора была найдена хотя бы
- * одна ошибка, код для виртуальной машины не печатается.*/
+ * When an error is detected, the parser prints a message and continues the
+ * analysis with the next operator in order to find as many errors as possible
+ * during the parsing process. Since the error recovery strategy is very simple,
+ * printing is possible reports of non-existent ("induced") errors or skipping
+ * some errors without printing messages. If at least one error was found during
+ * the parsing process, the code for the VM is not printed.
+ * */
 
-class Parser
-{
+class Parser {
 public:
-	// Конструктор
-	//    const string& fileName - имя файла с программой для анализа
-	//
-	// Конструктор создает экземпляры лексического анализатора и генератора.
+    // The constructor creates instances of the lexical analyzer and code
+    // generator.
+    Parser(const std::string &fileName, std::istream &input)
+        : output_(std::cout), error_(false), lastVar_(0) {
+        scanner_ = new Scanner(fileName, input);
+        codegen_ = new CodeGen(output_);
+        next();
+    }
 
-	Parser(const std::string& fileName, std::istream& input)
-		: output_(std::cout), error_(false), lastVar_(0)
-	{
-		scanner_ = new Scanner(fileName, input);
-		codegen_ = new CodeGen(output_);
-		next();
-	}
+    ~Parser() {
+        delete codegen_;
+        delete scanner_;
+    }
 
-	~Parser()
-	{
-		delete codegen_;
-		delete scanner_;
-	}
-
-	void parse();	//проводим синтаксический разбор
+    void parse();
 
 private:
-	typedef std::map<std::string, int> VarTable;
-	//описание блоков.
-	void program(); //Разбор программы. BEGIN statementList END
-	void statementList(); // Разбор списка операторов.
-	void statement(); //разбор оператора.
-	void expression(); //разбор арифметического выражения.
-	void term(); //разбор слагаемого.
-	void factor(); //разбор множителя.
-	void relation(); //разбор условия.
-	void logicalAndExpression();
-	void logicalOrExpression();
+    // Non-terminals
+    void program();
+    void statementList();
+    void statement();
+    void expression();
+    void term();
+    void factor();
+    void relation();
+    void logicalAndExpression();
+    void logicalOrExpression();
 
-	// Сравнение текущей лексемы с образцом. Текущая позиция в потоке лексем не изменяется.
-	bool see(Token t)
-	{
-		return scanner_->token() == t;
-	}
+    // Comparing the current token with the target. The current position in the
+    // token stream does not change.
+    bool see(Token t) { return scanner_->token() == t; }
 
-	// Проверка совпадения текущей лексемы с образцом. Если лексема и образец совпадают,
-	// лексема изымается из потока.
+    // Checking the match of the current token with the target. If the token and
+    // the target match, the token is removed from the stream.
+    bool match(Token t) {
+        if (scanner_->token() == t) {
+            scanner_->nextToken();
+            return true;
+        } else {
+            return false;
+        }
+    }
 
-	bool match(Token t)
-	{
-		if(scanner_->token() == t) {
-			scanner_->nextToken();
-			return true;
-		}
-		else {
-			return false;
-		}
-	}
+    void next() { scanner_->nextToken(); }
 
-	// Переход к следующей лексеме.
+    void reportError(const std::string &message) {
+        std::cerr << "Line " << scanner_->getLineNumber() << ": " << message
+                  << std::endl;
+        error_ = true;
+    }
 
-	void next()
-	{
-		scanner_->nextToken();
-	}
+    // Check if this token matches the target. If so, the token is removed from
+    // the stream. Otherwise, we create an error message and try to recover.
+    void mustBe(Token t);
 
-	// Обработчик ошибок.
-	void reportError(const std::string& message)
-	{
-		std::cerr << "Line " << scanner_->getLineNumber() << ": " << message << std::endl;
-		error_ = true;
-	}
+    // Error recovery: analyze the code until we meet this token or
+    // the end-of-file token.
+    void recover(Token t);
 
-	void mustBe(Token t); //проверяем, совпадает ли данная лексема с образцом. Если да, то лексема изымается из потока.
-	//Иначе создаем сообщение об ошибке и пробуем восстановиться
-	void recover(Token t); //восстановление после ошибки: идем по коду до тех пор,
-	//пока не встретим эту лексему или лексему конца файла.
-	int findOrAddVariable(const std::string&); //функция пробегает по variables_.
-	//Если находит нужную переменную - возвращает ее номер, иначе добавляет ее в массив, увеличивает lastVar и возвращает его.
+    // If it finds the desired variable, it returns its number, otherwise it
+    // adds the variable to the array, increases lastVar and returns it.
+    int findOrAddVariable(const std::string &variableName);
 
-	Scanner* scanner_; //лексический анализатор для конструктора
-	CodeGen* codegen_; //указатель на виртуальную машину
-	std::ostream& output_; //выходной поток (в данном случае используем cout)
-	bool error_; //флаг ошибки. Используется чтобы определить, выводим ли список команд после разбора или нет
-	VarTable variables_; //массив переменных, найденных в программе
-	int lastVar_; //номер последней записанной переменной
+    using VarTable = std::map<std::string, int>;
+
+private:
+    Scanner *scanner_;
+    CodeGen *codegen_;
+    std::ostream &output_;
+    bool error_;
+    VarTable variables_;
+	// the number of the last recorded variable
+    int lastVar_;
 };
 
 #endif

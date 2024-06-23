@@ -1,261 +1,217 @@
-#include "scanner.h"
 #include <algorithm>
-#include <iostream>
-#include <cctype>
 
-static const char * tokenNames_[] = {
-	"end of file",
-	"illegal token",
-	"identifier",
-	"number",
-	"'BEGIN'",
-	"'END'",
-	"'IF'",
-	"'THEN'",
-	"'ELSE'",
-	"'FI'",
-	"'WHILE'",
-	"'DO'",
-	"'OD'",
-	"'WRITE'",
-	"'READ'",
-	"':='",
-	"'+' or '-'",
-	"'*' or '/'",
-	"comparison operator",
-	"'('",
-	"')'",
-	"';'",
-	"'&'",
-	"'|'",
-	"'&&'",
-	"'||'",
-	"'!'",
-	"'true'",
-	"'false'",
+#include "scanner.h"
+
+static const char *tokenNames_[] = {
+    "end of file",
+    "illegal token",
+    "identifier",
+    "number",
+    "'BEGIN'",
+    "'END'",
+    "'IF'",
+    "'THEN'",
+    "'ELSE'",
+    "'FI'",
+    "'WHILE'",
+    "'DO'",
+    "'OD'",
+    "'WRITE'",
+    "'READ'",
+    "':='",
+    "'+' or '-'",
+    "'*' or '/'",
+    "comparison operator",
+    "'('",
+    "')'",
+    "';'",
+    "'&'",
+    "'|'",
+    "'&&'",
+    "'||'",
+    "'!'",
+    "'true'",
+    "'false'",
 };
 
-void Scanner::nextToken()
-{
-	skipSpace();
+void Scanner::nextToken() {
+    skipSpace();
 
-	// Пропускаем комментарии
-	// Если встречаем "/", то за ним должна идти "*". Если "*" не встречена, считаем, что встретили операцию деления
-	// и лексему - операция типа умножения. Дальше смотрим все символы, пока не находим звездочку или символ конца файла.
-	// Если нашли * - проверяем на наличие "/" после нее. Если "/" не найден - ищем следующую "*".
-	while(ch_ == '/') {
-		nextChar();
-		if(ch_ == '*') {
-			nextChar();
-			skipSpace();
-			bool inside = true;
-			while(inside) {
-				while(ch_ != '*' && !input_.eof()) {
-					nextChar();
-					skipSpace();
-				}
+    // Skip the comments.
+    while (ch_ == '/') {
+        nextChar();
+        if (ch_ == '*') {
+            nextChar();
+            skipSpace();
+            bool inside = true;
+            while (inside) {
+                while (ch_ != '*' && !input_.eof()) {
+                    nextChar();
+                    skipSpace();
+                }
 
-				if(input_.eof()) {
-					token_ = T_EOF;
-					return;
-				}
+                if (input_.eof()) {
+                    token_ = T_EOF;
+                    return;
+                }
 
-				nextChar();
-				if(ch_ == '/') {
-					inside = false;
-					nextChar();
-				}
-				skipSpace();
-			}
-		}
-		else {
-			token_ = T_MULOP;
-			arithmeticValue_ = A_DIVIDE;
-			return;
-		}
+                nextChar();
+                if (ch_ == '/') {
+                    inside = false;
+                    nextChar();
+                }
+                skipSpace();
+            }
+        } else {
+            token_ = T_MULOP;
+            arithmeticValue_ = A_DIVIDE;
+            return;
+        }
 
-		skipSpace();
-	}
+        skipSpace();
+    }
 
-	//Если встречен конец файла, считаем за лексему конца файла.
-	if(input_.eof()) {
-		token_ = T_EOF;
-		return;
-	}
-	//Если встретили цифру, то до тех пока дальше идут цифры - считаем как продолжение числа.
-	//Запоминаем полученное целое, а за лексему считаем целочисленный литерал
+    if (input_.eof()) {
+        token_ = T_EOF;
+        return;
+    }
 
-	if(std::isdigit(ch_)) {
-		int value = 0;
-		while(std::isdigit(ch_)) {
-			value = value * 10 + (ch_ - '0'); //поразрядное считывание, преобразуем символьное значение к числу.
-			nextChar();
-		}
-		token_ = T_NUMBER;
-		intValue_ = value;
-	}
-	//Если же следующий символ - буква ЛА - тогда считываем до тех пор, пока дальше буквы ЛА или цифры.
-	//Как только считали имя переменной, сравниваем ее со списком зарезервированных слов. Если не совпадает ни с одним из них,
-	//считаем, что получили переменную, имя которой запоминаем, а за текущую лексему считаем лексему идентификатора.
-	//Если совпадает с каким-либо словом из списка - считаем что получили лексему, соответствующую этому слову.
-	else if(isIdentifierStart(ch_)) {
-		std::string buffer;
-		while(isIdentifierBody(ch_)) {
-			buffer += ch_;
-			nextChar();
-		}
+    if (std::isdigit(ch_)) {
+        int value = 0;
+        while (std::isdigit(ch_)) {
+            value = value * 10 + (ch_ - '0');
+            nextChar();
+        }
+        token_ = T_NUMBER;
+        intValue_ = value;
+    } else if (isIdentifierStart(ch_)) {
+        std::string buffer;
+        while (isIdentifierBody(ch_)) {
+            buffer += ch_;
+            nextChar();
+        }
 
-		std::transform(buffer.begin(), buffer.end(), buffer.begin(), ::tolower);
+        std::transform(buffer.begin(), buffer.end(), buffer.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
 
-		std::map<std::string, Token>::iterator kwd = keywords_.find(buffer);
-		if(kwd == keywords_.end()) {
-			token_ = T_IDENTIFIER;
-			stringValue_ = buffer;
-		}
-		else {
-			token_ = kwd->second;
-		}
-	}
-	//Символ не является буквой, цифрой, "/" или признаком конца файла
-	else {
-		switch(ch_) {
-			//Признак лексемы открывающей скобки - встретили "("
-			case '(':
-				token_ = T_LPAREN;
-				nextChar();
-				break;
-			//Признак лексемы закрывающей скобки - встретили ")"
-			case ')':
-				token_ = T_RPAREN;
-				nextChar();
-				break;
-			//Признак лексемы ";" - встретили ";"
-			case ';':
-				token_ = T_SEMICOLON;
-				nextChar();
-				break;
-			//Если встречаем ":", то дальше смотрим наличие символа "=". Если находим, то считаем что нашли лексему присваивания
-			//Иначе - лексема ошибки.
-			case ':':
-				nextChar();
-				if(ch_ == '=') {
-					token_ = T_ASSIGN;
-					nextChar();
+        std::map<std::string, Token>::iterator kwd = keywords_.find(buffer);
+        if (kwd == keywords_.end()) {
+            token_ = T_IDENTIFIER;
+            stringValue_ = buffer;
+        } else {
+            token_ = kwd->second;
+        }
+    } else {
+        switch (ch_) {
+        case '(':
+            token_ = T_LPAREN;
+            nextChar();
+            break;
+        case ')':
+            token_ = T_RPAREN;
+            nextChar();
+            break;
+        case ';':
+            token_ = T_SEMICOLON;
+            nextChar();
+            break;
+        case ':':
+            nextChar();
+            if (ch_ == '=') {
+                token_ = T_ASSIGN;
+                nextChar();
 
-				}
-				else {
-					token_ = T_ILLEGAL;
-				}
-				break;
-			//Если встретили символ "<", то либо следующий символ "=", тогда лексема нестрогого сравнения. Иначе - строгого.
-			case '<':
-				token_ = T_CMP;
-				nextChar();
-				if(ch_ == '=') {
-					cmpValue_ = C_LE;
-					nextChar();
-				}
-				else {
-					cmpValue_ = C_LT;
-				}
-				break;
-			//Аналогично предыдущему случаю
-			case '>':
-				token_ = T_CMP;
-				nextChar();
-				if(ch_ == '=') {
-					cmpValue_ = C_GE;
-					nextChar();
-				}
-				else {
-					cmpValue_ = C_GT;
-				}
-				break;
-			//Если встретим "!", то дальше должно быть "=", тогда считаем, что получили лексему сравнения
-			//и знак "!=" иначе считаем, что у нас лексема ошибки
-			case '!':
-				nextChar();
-				if(ch_ == '=') {
-					nextChar();
-					token_ = T_CMP;
-					cmpValue_ = C_NE;
-				}
-				else {
-					token_ = T_NOT;
-				}
-				break;
-			//Если встретим "=" - лексема сравнения и знак "="
-			case '=':
-				token_ = T_CMP;
-				cmpValue_ = C_EQ;
-				nextChar();
-				break;
-			//Знаки операций. Для "+"/"-" получим лексему операции типа сложнения, и соответствующую операцию.
-			//для "*" - лексему операции типа умножения
-			case '+':
-				token_ = T_ADDOP;
-				arithmeticValue_ = A_PLUS;
-				nextChar();
-				break;
+            } else {
+                token_ = T_ILLEGAL;
+            }
+            break;
+        case '<':
+            token_ = T_CMP;
+            nextChar();
+            if (ch_ == '=') {
+                cmpValue_ = C_LE;
+                nextChar();
+            } else {
+                cmpValue_ = C_LT;
+            }
+            break;
+        case '>':
+            token_ = T_CMP;
+            nextChar();
+            if (ch_ == '=') {
+                cmpValue_ = C_GE;
+                nextChar();
+            } else {
+                cmpValue_ = C_GT;
+            }
+            break;
+        case '!':
+            nextChar();
+            if (ch_ == '=') {
+                nextChar();
+                token_ = T_CMP;
+                cmpValue_ = C_NE;
+            } else {
+                token_ = T_NOT;
+            }
+            break;
+        case '=':
+            token_ = T_CMP;
+            cmpValue_ = C_EQ;
+            nextChar();
+            break;
+        case '+':
+            token_ = T_ADDOP;
+            arithmeticValue_ = A_PLUS;
+            nextChar();
+            break;
 
-			case '-':
-				token_ = T_ADDOP;
-				arithmeticValue_ = A_MINUS;
-				nextChar();
-				break;
+        case '-':
+            token_ = T_ADDOP;
+            arithmeticValue_ = A_MINUS;
+            nextChar();
+            break;
 
-			case '*':
-				token_ = T_MULOP;
-				arithmeticValue_ = A_MULTIPLY;
-				nextChar();
-				break;
-			case '&':
-				nextChar();
-				if(ch_ == '&') {
-					nextChar();
-					token_ = T_AND;
-				}
-				else {
-					token_ = T_LAND;
-				}
-				break;
-			case '|':
-				nextChar();
-				if(ch_ == '|') {
-					nextChar();
-					token_ = T_OR;
-				}
-				else {
-					token_ = T_LOR;
-				}
-				break;
-			//Иначе лексема ошибки.
-			default:
-				token_ = T_ILLEGAL;
-				nextChar();
-				break;
-		}
-	}
+        case '*':
+            token_ = T_MULOP;
+            arithmeticValue_ = A_MULTIPLY;
+            nextChar();
+            break;
+        case '&':
+            nextChar();
+            if (ch_ == '&') {
+                nextChar();
+                token_ = T_AND;
+            } else {
+                token_ = T_LAND;
+            }
+            break;
+        case '|':
+            nextChar();
+            if (ch_ == '|') {
+                nextChar();
+                token_ = T_OR;
+            } else {
+                token_ = T_LOR;
+            }
+            break;
+        default:
+            token_ = T_ILLEGAL;
+            nextChar();
+            break;
+        }
+    }
 }
 
-void Scanner::skipSpace()
-{
-	while(std::isspace(ch_)) {
-		if(ch_ == '\n') {
-			++lineNumber_;
-		}
-
-		nextChar();
-	}
+void Scanner::skipSpace() {
+    while (std::isspace(ch_)) {
+        if (ch_ == '\n') {
+            ++lineNumber_;
+        }
+        nextChar();
+    }
 }
 
-void Scanner::nextChar()
-{
-	ch_ = input_.get();
-}
+void Scanner::nextChar() { ch_ = input_.get(); }
 
-const char * tokenToString(Token t)
-{
-	return tokenNames_[t];
-}
-
+const char *tokenToString(Token t) { return tokenNames_[t]; }
