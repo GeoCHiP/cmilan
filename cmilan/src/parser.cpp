@@ -322,7 +322,7 @@ void Parser::relation()
 	}
 }
 
-int Parser::findOrAddVariable(const string& var)
+int Parser::findOrAddVariable(const std::string& var)
 {
 	VarTable::iterator it = variables_.find(var);
 	if(it == variables_.end()) {

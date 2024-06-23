@@ -1,6 +1,6 @@
 #include "codegen.h"
 
-void Command::print(int address, ostream& os)
+void Command::print(int address, std::ostream& os)
 {
 	os << address << ":\t";
 	switch(instruction_) {
@@ -85,7 +85,7 @@ void Command::print(int address, ostream& os)
 			break;
 	}
 
-	os << endl;
+	os << std::endl;
 }
 
 void CodeGen::emit(Instruction instruction)

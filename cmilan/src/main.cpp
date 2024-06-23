@@ -2,11 +2,9 @@
 #include <iostream>
 #include <cstdlib>
 
-using namespace std;
-
 void printHelp()
 {
-	cout << "Usage: cmilan input_file" << endl;
+	std::cout << "Usage: cmilan input_file" << std::endl;
 }
 
 int main(int argc, char** argv)
@@ -16,7 +14,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	ifstream input;
+	std::ifstream input;
         input.open(argv[1]);
 
 	if(input) {
@@ -25,7 +23,7 @@ int main(int argc, char** argv)
 		return EXIT_SUCCESS;
 	}
 	else {
-		cerr << "File '" << argv[1] << "' not found" << endl;
+		std::cerr << "File '" << argv[1] << "' not found" << std::endl;
 		return EXIT_FAILURE;
 	}
 }

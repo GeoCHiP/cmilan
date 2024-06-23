@@ -4,8 +4,6 @@
 #include <vector>
 #include <iostream>
 
-using namespace std;
-
 // Инструкции виртуальной машины Милана
 
 enum Instruction
@@ -50,7 +48,7 @@ public:
 	// Печать инструкции
 	//     int address - адрес инструкции
 	//     ostream& os - поток вывода, куда будет напечатана инструкция
-	void print(int address, ostream& os);
+	void print(int address, std::ostream& os);
 
 private:
 	Instruction instruction_; // Код инструкции
@@ -66,7 +64,7 @@ private:
 class CodeGen
 {
 public:
-	explicit CodeGen(ostream& output)
+	explicit CodeGen(std::ostream& output)
 		: output_(output)
 	{
 	}
@@ -93,8 +91,8 @@ public:
 	void flush();
 
 private:
-	ostream& output_;               // Выходной поток
-	vector<Command> commandBuffer_;	// Буфер инструкций
+	std::ostream& output_;               // Выходной поток
+	std::vector<Command> commandBuffer_;	// Буфер инструкций
 };
 
 #endif

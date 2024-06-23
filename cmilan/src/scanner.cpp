@@ -3,8 +3,6 @@
 #include <iostream>
 #include <cctype>
 
-using namespace std;
-
 static const char * tokenNames_[] = {
 	"end of file",
 	"illegal token",
@@ -87,9 +85,9 @@ void Scanner::nextToken()
 	//Если встретили цифру, то до тех пока дальше идут цифры - считаем как продолжение числа.
 	//Запоминаем полученное целое, а за лексему считаем целочисленный литерал
 
-	if(isdigit(ch_)) {
+	if(std::isdigit(ch_)) {
 		int value = 0;
-		while(isdigit(ch_)) {
+		while(std::isdigit(ch_)) {
 			value = value * 10 + (ch_ - '0'); //поразрядное считывание, преобразуем символьное значение к числу.
 			nextChar();
 		}
@@ -101,15 +99,15 @@ void Scanner::nextToken()
 	//считаем, что получили переменную, имя которой запоминаем, а за текущую лексему считаем лексему идентификатора.
 	//Если совпадает с каким-либо словом из списка - считаем что получили лексему, соответствующую этому слову.
 	else if(isIdentifierStart(ch_)) {
-		string buffer;
+		std::string buffer;
 		while(isIdentifierBody(ch_)) {
 			buffer += ch_;
 			nextChar();
 		}
 
-		transform(buffer.begin(), buffer.end(), buffer.begin(), ::tolower);
+		std::transform(buffer.begin(), buffer.end(), buffer.begin(), ::tolower);
 
-		map<string, Token>::iterator kwd = keywords_.find(buffer);
+		std::map<std::string, Token>::iterator kwd = keywords_.find(buffer);
 		if(kwd == keywords_.end()) {
 			token_ = T_IDENTIFIER;
 			stringValue_ = buffer;
@@ -242,7 +240,7 @@ void Scanner::nextToken()
 
 void Scanner::skipSpace()
 {
-	while(isspace(ch_)) {
+	while(std::isspace(ch_)) {
 		if(ch_ == '\n') {
 			++lineNumber_;
 		}

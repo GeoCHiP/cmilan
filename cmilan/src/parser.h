@@ -8,8 +8,6 @@
 #include <string>
 #include <map>
 
-using namespace std;
-
 /* Синтаксический анализатор.
  *
  * Задачи:
@@ -39,8 +37,8 @@ public:
 	//
 	// Конструктор создает экземпляры лексического анализатора и генератора.
 
-	Parser(const string& fileName, istream& input)
-		: output_(cout), error_(false), lastVar_(0)
+	Parser(const std::string& fileName, std::istream& input)
+		: output_(std::cout), error_(false), lastVar_(0)
 	{
 		scanner_ = new Scanner(fileName, input);
 		codegen_ = new CodeGen(output_);
@@ -56,7 +54,7 @@ public:
 	void parse();	//проводим синтаксический разбор
 
 private:
-	typedef map<string, int> VarTable;
+	typedef std::map<std::string, int> VarTable;
 	//описание блоков.
 	void program(); //Разбор программы. BEGIN statementList END
 	void statementList(); // Разбор списка операторов.
@@ -96,9 +94,9 @@ private:
 	}
 
 	// Обработчик ошибок.
-	void reportError(const string& message)
+	void reportError(const std::string& message)
 	{
-		cerr << "Line " << scanner_->getLineNumber() << ": " << message << endl;
+		std::cerr << "Line " << scanner_->getLineNumber() << ": " << message << std::endl;
 		error_ = true;
 	}
 
@@ -106,12 +104,12 @@ private:
 	//Иначе создаем сообщение об ошибке и пробуем восстановиться
 	void recover(Token t); //восстановление после ошибки: идем по коду до тех пор,
 	//пока не встретим эту лексему или лексему конца файла.
-	int findOrAddVariable(const string&); //функция пробегает по variables_.
+	int findOrAddVariable(const std::string&); //функция пробегает по variables_.
 	//Если находит нужную переменную - возвращает ее номер, иначе добавляет ее в массив, увеличивает lastVar и возвращает его.
 
 	Scanner* scanner_; //лексический анализатор для конструктора
 	CodeGen* codegen_; //указатель на виртуальную машину
-	ostream& output_; //выходной поток (в данном случае используем cout)
+	std::ostream& output_; //выходной поток (в данном случае используем cout)
 	bool error_; //флаг ошибки. Используется чтобы определить, выводим ли список команд после разбора или нет
 	VarTable variables_; //массив переменных, найденных в программе
 	int lastVar_; //номер последней записанной переменной

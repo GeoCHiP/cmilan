@@ -5,8 +5,6 @@
 #include <string>
 #include <map>
 
-using namespace std;
-
 enum Token {
 	T_EOF,			// Конец текстового потока
 	T_ILLEGAL,		// Признак недопустимого символа
@@ -69,7 +67,7 @@ public:
 	// Конструктор. В качестве аргумента принимает имя файла и поток,
         // из которого будут читаться символы транслируемой программы.
 
-	explicit Scanner(const string& fileName, istream& input)
+	explicit Scanner(const std::string& fileName, std::istream& input)
 		: fileName_(fileName), lineNumber_(1), input_(input)
 	{
 		keywords_["begin"] = T_BEGIN;
@@ -94,7 +92,7 @@ public:
 	{}
 
 	//getters всех private переменных
-	const string& getFileName() const //не используется
+	const std::string& getFileName() const //не используется
 	{
 		return fileName_;
 	}
@@ -114,7 +112,7 @@ public:
 		return intValue_;
 	}
 
-	string getStringValue() const
+	std::string getStringValue() const
 	{
 		return stringValue_;
 	}
@@ -154,19 +152,19 @@ private:
 	}
 
 
-	const string fileName_; //входной файл
+	const std::string fileName_; //входной файл
 	int lineNumber_; //номер текущей строки кода
 
 	Token token_; //текущая лексема
 	int intValue_; //значение текущего целого
-	string stringValue_; //имя переменной
+	std::string stringValue_; //имя переменной
 	Cmp cmpValue_; //значение оператора сравнения (>, <, =, !=, >=, <=)
 	Arithmetic arithmeticValue_; //значение знака (+,-,*,/)
 
-	map<string, Token> keywords_; //ассоциативный массив с лексемами и
+	std::map<std::string, Token> keywords_; //ассоциативный массив с лексемами и
 	//соответствующими им зарезервированными словами в качестве индексов
 
-	istream& input_; //входной поток для чтения из файла.
+	std::istream& input_; //входной поток для чтения из файла.
 	char ch_; //текущий символ
 };
 
