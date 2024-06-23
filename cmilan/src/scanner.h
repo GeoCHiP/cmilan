@@ -37,7 +37,7 @@ enum Token {
 };
 
 // Returns lexeme description.
-const char *tokenToString(Token t);
+const char *TokenToString(Token t);
 
 // Type of comparison operation.
 enum Cmp {
@@ -60,70 +60,39 @@ enum Arithmetic {
 // Lexial analyzer.
 class Scanner {
 public:
-    explicit Scanner(const std::string &fileName, std::istream &input)
-        : fileName_(fileName), lineNumber_(1), input_(input) {
-        keywords_["begin"] = T_BEGIN;
-        keywords_["end"] = T_END;
-        keywords_["if"] = T_IF;
-        keywords_["then"] = T_THEN;
-        keywords_["else"] = T_ELSE;
-        keywords_["fi"] = T_FI;
-        keywords_["while"] = T_WHILE;
-        keywords_["do"] = T_DO;
-        keywords_["od"] = T_OD;
-        keywords_["write"] = T_WRITE;
-        keywords_["read"] = T_READ;
-        keywords_["true"] = T_TRUE;
-        keywords_["false"] = T_FALSE;
+    explicit Scanner(const std::string &fileName, std::istream &input);
 
-        nextChar();
-    }
-
-    virtual ~Scanner() {}
-
-    const std::string &getFileName() const { return fileName_; }
-
-    int getLineNumber() const { return lineNumber_; }
-
-    Token token() const { return token_; }
-
-    int getIntValue() const { return intValue_; }
-
-    std::string getStringValue() const { return stringValue_; }
-
-    Cmp getCmpValue() const { return cmpValue_; }
-
-    Arithmetic getArithmeticValue() const { return arithmeticValue_; }
+    const std::string &GetFileName() const;
+    int GetLineNumber() const;
+    Token GetCurrentToken() const;
+    int GetIntValue() const;
+    std::string GetStringValue() const;
+    Cmp GetCmpValue() const;
+    Arithmetic GetArithmeticValue() const;
 
     // Exctract the next lexeme.
     // Next lexeme is saved in token_ and extracted from the stream.
-    void nextToken();
+    void ExtractNextToken();
 
 private:
+    void ExtractNextChar();
+
     // Skip all the whitespace characters.
     // If new-line character found, increment lineNumber_
-    void skipSpace();
-
-    void nextChar();
-
-    bool isIdentifierStart(char c) {
-        return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
-    }
-
-    bool isIdentifierBody(char c) { return isIdentifierStart(c) || isdigit(c); }
+    void SkipSpace();
 
 private:
-    const std::string fileName_;
-    int lineNumber_;
-    Token token_;
-    int intValue_;
+    const std::string m_FileName;
+    int m_LineNumber = 1;
+    char m_CurrentChar;
+    Token m_CurrentToken;
+    int m_IntValue = 0;
     // Variable name
-    std::string stringValue_;
-    Cmp cmpValue_;
-    Arithmetic arithmeticValue_;
-    std::map<std::string, Token> keywords_;
-    std::istream &input_;
-    char ch_;
+    std::string m_StringValue;
+    Cmp m_CmpValue;
+    Arithmetic m_ArithmeticValue;
+    std::map<std::string, Token> m_Keywords;
+    std::istream &m_InputStream;
 };
 
 #endif // CMILAN_SCANNER_H

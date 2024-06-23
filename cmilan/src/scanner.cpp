@@ -1,8 +1,9 @@
 #include <algorithm>
+#include <cctype>
 
 #include "scanner.h"
 
-static const char *tokenNames_[] = {
+static const char *s_TokenNames[] = {
     "end of file",
     "illegal token",
     "identifier",
@@ -34,184 +35,243 @@ static const char *tokenNames_[] = {
     "'false'",
 };
 
-void Scanner::nextToken() {
-    skipSpace();
+Scanner::Scanner(const std::string &fileName, std::istream &input)
+    : m_FileName(fileName), m_InputStream(input) {
+    m_Keywords["begin"] = T_BEGIN;
+    m_Keywords["end"] = T_END;
+    m_Keywords["if"] = T_IF;
+    m_Keywords["then"] = T_THEN;
+    m_Keywords["else"] = T_ELSE;
+    m_Keywords["fi"] = T_FI;
+    m_Keywords["while"] = T_WHILE;
+    m_Keywords["do"] = T_DO;
+    m_Keywords["od"] = T_OD;
+    m_Keywords["write"] = T_WRITE;
+    m_Keywords["read"] = T_READ;
+    m_Keywords["true"] = T_TRUE;
+    m_Keywords["false"] = T_FALSE;
+
+    ExtractNextChar();
+}
+
+const std::string &Scanner::GetFileName() const {
+    return m_FileName;
+}
+
+int Scanner::GetLineNumber() const {
+    return m_LineNumber;
+}
+
+Token Scanner::GetCurrentToken() const {
+    return m_CurrentToken;
+}
+
+int Scanner::GetIntValue() const {
+    return m_IntValue;
+}
+
+std::string Scanner::GetStringValue() const {
+    return m_StringValue;
+}
+
+Cmp Scanner::GetCmpValue() const {
+    return m_CmpValue;
+}
+
+Arithmetic Scanner::GetArithmeticValue() const {
+    return m_ArithmeticValue;
+}
+
+static bool IsIdentifierStart(char c) {
+    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+}
+
+static bool IsIdentifierBody(char c) {
+    return IsIdentifierStart(c) || std::isdigit(c);
+}
+
+void Scanner::ExtractNextToken() {
+    SkipSpace();
 
     // Skip the comments.
-    while (ch_ == '/') {
-        nextChar();
-        if (ch_ == '*') {
-            nextChar();
-            skipSpace();
+    while (m_CurrentChar == '/') {
+        ExtractNextChar();
+        if (m_CurrentChar == '*') {
+            ExtractNextChar();
+            SkipSpace();
             bool inside = true;
             while (inside) {
-                while (ch_ != '*' && !input_.eof()) {
-                    nextChar();
-                    skipSpace();
+                while (m_CurrentChar != '*' && !m_InputStream.eof()) {
+                    ExtractNextChar();
+                    SkipSpace();
                 }
 
-                if (input_.eof()) {
-                    token_ = T_EOF;
+                if (m_InputStream.eof()) {
+                    m_CurrentToken = T_EOF;
                     return;
                 }
 
-                nextChar();
-                if (ch_ == '/') {
+                ExtractNextChar();
+                if (m_CurrentChar == '/') {
                     inside = false;
-                    nextChar();
+                    ExtractNextChar();
                 }
-                skipSpace();
+                SkipSpace();
             }
         } else {
-            token_ = T_MULOP;
-            arithmeticValue_ = A_DIVIDE;
+            m_CurrentToken = T_MULOP;
+            m_ArithmeticValue = A_DIVIDE;
             return;
         }
 
-        skipSpace();
+        SkipSpace();
     }
 
-    if (input_.eof()) {
-        token_ = T_EOF;
+    if (m_InputStream.eof()) {
+        m_CurrentToken = T_EOF;
         return;
     }
 
-    if (std::isdigit(ch_)) {
+    if (std::isdigit(m_CurrentChar)) {
         int value = 0;
-        while (std::isdigit(ch_)) {
-            value = value * 10 + (ch_ - '0');
-            nextChar();
+        while (std::isdigit(m_CurrentChar)) {
+            value = value * 10 + (m_CurrentChar - '0');
+            ExtractNextChar();
         }
-        token_ = T_NUMBER;
-        intValue_ = value;
-    } else if (isIdentifierStart(ch_)) {
+        m_CurrentToken = T_NUMBER;
+        m_IntValue = value;
+    } else if (IsIdentifierStart(m_CurrentChar)) {
         std::string buffer;
-        while (isIdentifierBody(ch_)) {
-            buffer += ch_;
-            nextChar();
+        while (IsIdentifierBody(m_CurrentChar)) {
+            buffer += m_CurrentChar;
+            ExtractNextChar();
         }
 
         std::transform(buffer.begin(), buffer.end(), buffer.begin(),
                        [](unsigned char c) { return std::tolower(c); });
 
-        std::map<std::string, Token>::iterator kwd = keywords_.find(buffer);
-        if (kwd == keywords_.end()) {
-            token_ = T_IDENTIFIER;
-            stringValue_ = buffer;
+        std::map<std::string, Token>::iterator kwd = m_Keywords.find(buffer);
+        if (kwd == m_Keywords.end()) {
+            m_CurrentToken = T_IDENTIFIER;
+            m_StringValue = buffer;
         } else {
-            token_ = kwd->second;
+            m_CurrentToken = kwd->second;
         }
     } else {
-        switch (ch_) {
+        switch (m_CurrentChar) {
         case '(':
-            token_ = T_LPAREN;
-            nextChar();
+            m_CurrentToken = T_LPAREN;
+            ExtractNextChar();
             break;
         case ')':
-            token_ = T_RPAREN;
-            nextChar();
+            m_CurrentToken = T_RPAREN;
+            ExtractNextChar();
             break;
         case ';':
-            token_ = T_SEMICOLON;
-            nextChar();
+            m_CurrentToken = T_SEMICOLON;
+            ExtractNextChar();
             break;
         case ':':
-            nextChar();
-            if (ch_ == '=') {
-                token_ = T_ASSIGN;
-                nextChar();
+            ExtractNextChar();
+            if (m_CurrentChar == '=') {
+                m_CurrentToken = T_ASSIGN;
+                ExtractNextChar();
 
             } else {
-                token_ = T_ILLEGAL;
+                m_CurrentToken = T_ILLEGAL;
             }
             break;
         case '<':
-            token_ = T_CMP;
-            nextChar();
-            if (ch_ == '=') {
-                cmpValue_ = C_LE;
-                nextChar();
+            m_CurrentToken = T_CMP;
+            ExtractNextChar();
+            if (m_CurrentChar == '=') {
+                m_CmpValue = C_LE;
+                ExtractNextChar();
             } else {
-                cmpValue_ = C_LT;
+                m_CmpValue = C_LT;
             }
             break;
         case '>':
-            token_ = T_CMP;
-            nextChar();
-            if (ch_ == '=') {
-                cmpValue_ = C_GE;
-                nextChar();
+            m_CurrentToken = T_CMP;
+            ExtractNextChar();
+            if (m_CurrentChar == '=') {
+                m_CmpValue = C_GE;
+                ExtractNextChar();
             } else {
-                cmpValue_ = C_GT;
+                m_CmpValue = C_GT;
             }
             break;
         case '!':
-            nextChar();
-            if (ch_ == '=') {
-                nextChar();
-                token_ = T_CMP;
-                cmpValue_ = C_NE;
+            ExtractNextChar();
+            if (m_CurrentChar == '=') {
+                ExtractNextChar();
+                m_CurrentToken = T_CMP;
+                m_CmpValue = C_NE;
             } else {
-                token_ = T_NOT;
+                m_CurrentToken = T_NOT;
             }
             break;
         case '=':
-            token_ = T_CMP;
-            cmpValue_ = C_EQ;
-            nextChar();
+            m_CurrentToken = T_CMP;
+            m_CmpValue = C_EQ;
+            ExtractNextChar();
             break;
         case '+':
-            token_ = T_ADDOP;
-            arithmeticValue_ = A_PLUS;
-            nextChar();
+            m_CurrentToken = T_ADDOP;
+            m_ArithmeticValue = A_PLUS;
+            ExtractNextChar();
             break;
 
         case '-':
-            token_ = T_ADDOP;
-            arithmeticValue_ = A_MINUS;
-            nextChar();
+            m_CurrentToken = T_ADDOP;
+            m_ArithmeticValue = A_MINUS;
+            ExtractNextChar();
             break;
 
         case '*':
-            token_ = T_MULOP;
-            arithmeticValue_ = A_MULTIPLY;
-            nextChar();
+            m_CurrentToken = T_MULOP;
+            m_ArithmeticValue = A_MULTIPLY;
+            ExtractNextChar();
             break;
         case '&':
-            nextChar();
-            if (ch_ == '&') {
-                nextChar();
-                token_ = T_AND;
+            ExtractNextChar();
+            if (m_CurrentChar == '&') {
+                ExtractNextChar();
+                m_CurrentToken = T_AND;
             } else {
-                token_ = T_LAND;
+                m_CurrentToken = T_LAND;
             }
             break;
         case '|':
-            nextChar();
-            if (ch_ == '|') {
-                nextChar();
-                token_ = T_OR;
+            ExtractNextChar();
+            if (m_CurrentChar == '|') {
+                ExtractNextChar();
+                m_CurrentToken = T_OR;
             } else {
-                token_ = T_LOR;
+                m_CurrentToken = T_LOR;
             }
             break;
         default:
-            token_ = T_ILLEGAL;
-            nextChar();
+            m_CurrentToken = T_ILLEGAL;
+            ExtractNextChar();
             break;
         }
     }
 }
 
-void Scanner::skipSpace() {
-    while (std::isspace(ch_)) {
-        if (ch_ == '\n') {
-            ++lineNumber_;
+void Scanner::SkipSpace() {
+    while (std::isspace(m_CurrentChar)) {
+        if (m_CurrentChar == '\n') {
+            ++m_LineNumber;
         }
-        nextChar();
+        ExtractNextChar();
     }
 }
 
-void Scanner::nextChar() { ch_ = input_.get(); }
+void Scanner::ExtractNextChar() {
+    m_CurrentChar = m_InputStream.get();
+}
 
-const char *tokenToString(Token t) { return tokenNames_[t]; }
+const char *TokenToString(Token t) {
+    return s_TokenNames[t];
+}

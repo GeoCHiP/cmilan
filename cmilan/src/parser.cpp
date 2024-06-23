@@ -41,7 +41,7 @@ void Parser::statement() {
         // comes the expression block, which returns the value to the top of
         // the stack. We write this value to the address of our variable.
 
-        int varAddress = findOrAddVariable(scanner_->getStringValue());
+        int varAddress = findOrAddVariable(scanner_->GetStringValue());
         next();
         mustBe(T_ASSIGN);
         logicalOrExpression();
@@ -127,7 +127,7 @@ void Parser::statement() {
 void Parser::expression() {
     term();
     while (see(T_ADDOP)) {
-        Arithmetic op = scanner_->getArithmeticValue();
+        Arithmetic op = scanner_->GetArithmeticValue();
         next();
         term();
 
@@ -151,7 +151,7 @@ void Parser::expression() {
 void Parser::term() {
     factor();
     while (see(T_MULOP)) {
-        Arithmetic op = scanner_->getArithmeticValue();
+        Arithmetic op = scanner_->GetArithmeticValue();
         next();
         factor();
 
@@ -169,7 +169,7 @@ void Parser::term() {
  */
 void Parser::factor() {
     if (see(T_NUMBER)) {
-        int value = scanner_->getIntValue();
+        int value = scanner_->GetIntValue();
         next();
         codegen_->emit(PUSH, value);
     } else if (see(T_TRUE)) {
@@ -179,10 +179,10 @@ void Parser::factor() {
         next();
         codegen_->emit(PUSH, 0);
     } else if (see(T_IDENTIFIER)) {
-        int varAddress = findOrAddVariable(scanner_->getStringValue());
+        int varAddress = findOrAddVariable(scanner_->GetStringValue());
         next();
         codegen_->emit(LOAD, varAddress);
-    } else if (see(T_ADDOP) && scanner_->getArithmeticValue() == A_MINUS) {
+    } else if (see(T_ADDOP) && scanner_->GetArithmeticValue() == A_MINUS) {
         next();
         factor();
         codegen_->emit(INVERT);
@@ -287,7 +287,7 @@ void Parser::logicalOrExpression() {
 void Parser::relation() {
     expression();
     if (see(T_CMP)) {
-        Cmp cmp = scanner_->getCmpValue();
+        Cmp cmp = scanner_->GetCmpValue();
         next();
         expression();
         switch (cmp) {
@@ -328,8 +328,8 @@ void Parser::mustBe(Token t) {
         error_ = true;
 
         std::ostringstream msg;
-        msg << tokenToString(scanner_->token()) << " found while "
-            << tokenToString(t) << " expected.";
+        msg << TokenToString(scanner_->GetCurrentToken()) << " found while "
+            << TokenToString(t) << " expected.";
         reportError(msg.str());
 
         recover(t);

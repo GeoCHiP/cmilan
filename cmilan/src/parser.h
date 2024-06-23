@@ -58,23 +58,23 @@ private:
 
     // Comparing the current token with the target. The current position in the
     // token stream does not change.
-    bool see(Token t) { return scanner_->token() == t; }
+    bool see(Token t) { return scanner_->GetCurrentToken() == t; }
 
     // Checking the match of the current token with the target. If the token and
     // the target match, the token is removed from the stream.
     bool match(Token t) {
-        if (scanner_->token() == t) {
-            scanner_->nextToken();
+        if (scanner_->GetCurrentToken() == t) {
+            scanner_->ExtractNextToken();
             return true;
         } else {
             return false;
         }
     }
 
-    void next() { scanner_->nextToken(); }
+    void next() { scanner_->ExtractNextToken(); }
 
     void reportError(const std::string &message) {
-        std::cerr << "Line " << scanner_->getLineNumber() << ": " << message
+        std::cerr << "Line " << scanner_->GetLineNumber() << ": " << message
                   << std::endl;
         error_ = true;
     }
