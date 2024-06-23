@@ -35,7 +35,6 @@ enum Instruction {
     DIV,
     // Change sign of the word on the stack.
     INVERT,
-
     // COMPARE cmp - compare two words from the stack with comparison operation
     // cmp and store the result on the stack.
     COMPARE,
@@ -51,18 +50,13 @@ enum Instruction {
     PRINT
 };
 
-class Command {
-public:
-    Command(Instruction instruction) : instruction_(instruction), arg_(0) {}
-
-    Command(Instruction instruction, int arg)
-        : instruction_(instruction), arg_(arg) {}
-
+struct Command {
+    Command(Instruction instruction);
+    Command(Instruction instruction, int arg);
     void print(int address, std::ostream &os);
 
-private:
-    Instruction instruction_;
-    int arg_;
+    Instruction instruction;
+    int argument = 0;
 };
 
 // Code generator.
@@ -72,7 +66,7 @@ private:
 // - Buffer the program and print to the output stream.
 class CodeGen {
 public:
-    explicit CodeGen(std::ostream &output) : output_(output) {}
+    explicit CodeGen(std::ostream &output);
 
     // Append instruction without arguments to the program.
     void emit(Instruction instruction);
@@ -96,8 +90,8 @@ public:
     void flush();
 
 private:
-    std::ostream &output_;
-    std::vector<Command> commandBuffer_;
+    std::ostream &m_OutputStream;
+    std::vector<Command> m_Commands;
 };
 
 #endif

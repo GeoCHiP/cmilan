@@ -1,8 +1,13 @@
 #include "codegen.h"
 
+Command::Command(Instruction instruction) : instruction(instruction) {}
+
+Command::Command(Instruction instruction, int arg)
+    : instruction(instruction), argument(arg) {}
+
 void Command::print(int address, std::ostream &os) {
     os << address << ":\t";
-    switch (instruction_) {
+    switch (instruction) {
     case NOP:
         os << "NOP";
         break;
@@ -12,23 +17,23 @@ void Command::print(int address, std::ostream &os) {
         break;
 
     case LOAD:
-        os << "LOAD\t" << arg_;
+        os << "LOAD\t" << argument;
         break;
 
     case STORE:
-        os << "STORE\t" << arg_;
+        os << "STORE\t" << argument;
         break;
 
     case BLOAD:
-        os << "BLOAD\t" << arg_;
+        os << "BLOAD\t" << argument;
         break;
 
     case BSTORE:
-        os << "BSTORE\t" << arg_;
+        os << "BSTORE\t" << argument;
         break;
 
     case PUSH:
-        os << "PUSH\t" << arg_;
+        os << "PUSH\t" << argument;
         break;
 
     case POP:
@@ -60,19 +65,19 @@ void Command::print(int address, std::ostream &os) {
         break;
 
     case COMPARE:
-        os << "COMPARE\t" << arg_;
+        os << "COMPARE\t" << argument;
         break;
 
     case JUMP:
-        os << "JUMP\t" << arg_;
+        os << "JUMP\t" << argument;
         break;
 
     case JUMP_YES:
-        os << "JUMP_YES\t" << arg_;
+        os << "JUMP_YES\t" << argument;
         break;
 
     case JUMP_NO:
-        os << "JUMP_NO\t" << arg_;
+        os << "JUMP_NO\t" << argument;
         break;
 
     case INPUT:
@@ -87,33 +92,37 @@ void Command::print(int address, std::ostream &os) {
     os << std::endl;
 }
 
+CodeGen::CodeGen(std::ostream &output) : m_OutputStream(output) {}
+
 void CodeGen::emit(Instruction instruction) {
-    commandBuffer_.push_back(Command(instruction));
+    m_Commands.push_back(Command(instruction));
 }
 
 void CodeGen::emit(Instruction instruction, int arg) {
-    commandBuffer_.push_back(Command(instruction, arg));
+    m_Commands.push_back(Command(instruction, arg));
 }
 
 void CodeGen::emitAt(int address, Instruction instruction) {
-    commandBuffer_[address] = Command(instruction);
+    m_Commands[address] = Command(instruction);
 }
 
 void CodeGen::emitAt(int address, Instruction instruction, int arg) {
-    commandBuffer_[address] = Command(instruction, arg);
+    m_Commands[address] = Command(instruction, arg);
 }
 
-int CodeGen::getCurrentAddress() { return commandBuffer_.size(); }
+int CodeGen::getCurrentAddress() {
+    return m_Commands.size();
+}
 
 int CodeGen::reserve() {
     emit(NOP);
-    return commandBuffer_.size() - 1;
+    return m_Commands.size() - 1;
 }
 
 void CodeGen::flush() {
-    int count = commandBuffer_.size();
+    int count = m_Commands.size();
     for (int address = 0; address < count; ++address) {
-        commandBuffer_[address].print(address, output_);
+        m_Commands[address].print(address, m_OutputStream);
     }
-    output_.flush();
+    m_OutputStream.flush();
 }
