@@ -39,9 +39,9 @@ void Parser::Parse() {
 }
 
 void Parser::Program() {
-    MustBe(T_BEGIN);
+    MustBe(Token::Begin);
     StatementList();
-    MustBe(T_END);
+    MustBe(Token::End);
     m_Codegen.emit(STOP);
 }
 
@@ -52,19 +52,20 @@ void Parser::StatementList() {
     // the next token is not included in this list, then we consider it the
     // beginning of the operator and we call the statement method. The sign of
     // the last operator is the absence of a semicolon after the operator.
-    if (See(T_END) || See(T_OD) || See(T_ELSE) || See(T_FI)) {
+    if (See(Token::End) || See(Token::Od) || See(Token::Else) ||
+        See(Token::Fi)) {
         return;
     } else {
         bool more = true;
         while (more) {
             Statement();
-            more = Match(T_SEMICOLON);
+            more = Match(Token::Semicolon);
         }
     }
 }
 
 void Parser::Statement() {
-    if (See(T_IDENTIFIER)) {
+    if (See(Token::Identifier)) {
         // If we meet a variable, then we remember its address or add a new one
         // if we haven't met it. The next token should be assignment. Then
         // comes the expression block, which returns the value to the top of
@@ -72,10 +73,10 @@ void Parser::Statement() {
 
         int varAddress = FindOrAddVariable(m_Scanner.GetStringValue());
         Next();
-        MustBe(T_ASSIGN);
+        MustBe(Token::Assign);
         LogicalOrExpression();
         m_Codegen.emit(STORE, varAddress);
-    } else if (Match(T_IF)) {
+    } else if (Match(Token::If)) {
         // If an IF is encountered, then the condition must follow. There is a
         // 1 or 0 at the top of the stack, depending on the condition being
         // met. Then reserve a place for the conditional JUMP_NO transition to
@@ -87,9 +88,9 @@ void Parser::Statement() {
 
         int jumpNoAddress = m_Codegen.reserve();
 
-        MustBe(T_THEN);
+        MustBe(Token::Then);
         StatementList();
-        if (Match(T_ELSE)) {
+        if (Match(Token::Else)) {
             // If there is an ELSE block, then in order not to execute it if
             // THEN is executed, we reserve a place for the JUMP command at the
             // end of this block.
@@ -113,8 +114,8 @@ void Parser::Statement() {
             m_Codegen.emitAt(jumpNoAddress, JUMP_NO,
                              m_Codegen.getCurrentAddress());
         }
-        MustBe(T_FI);
-    } else if (Match(T_WHILE)) {
+        MustBe(Token::Fi);
+    } else if (Match(Token::While)) {
         // Save the address of the start of the condition check.
         int conditionAddress = m_Codegen.getCurrentAddress();
 
@@ -123,9 +124,9 @@ void Parser::Statement() {
         // Reserve a place for the conditional jump instruction to exit loop.
         int jumpNoAddress = m_Codegen.reserve();
 
-        MustBe(T_DO);
+        MustBe(Token::Do);
         StatementList();
-        MustBe(T_OD);
+        MustBe(Token::Od);
 
         // Jump to the address of the loop condition.
         m_Codegen.emit(JUMP, conditionAddress);
@@ -134,10 +135,10 @@ void Parser::Statement() {
         // to the operator following the loop.
         m_Codegen.emitAt(jumpNoAddress, JUMP_NO,
                          m_Codegen.getCurrentAddress());
-    } else if (Match(T_WRITE)) {
-        MustBe(T_LPAREN);
+    } else if (Match(Token::Write)) {
+        MustBe(Token::LeftParen);
         Expression();
-        MustBe(T_RPAREN);
+        MustBe(Token::RightParen);
         m_Codegen.emit(PRINT);
     } else {
         ReportError("statement expected.");
@@ -155,12 +156,12 @@ void Parser::Statement() {
  */
 void Parser::Expression() {
     Term();
-    while (See(T_ADDOP)) {
+    while (See(Token::AddOp)) {
         Arithmetic op = m_Scanner.GetArithmeticValue();
         Next();
         Term();
 
-        if (op == A_PLUS) {
+        if (op == Arithmetic::Plus) {
             m_Codegen.emit(ADD);
         } else {
             m_Codegen.emit(SUB);
@@ -179,12 +180,12 @@ void Parser::Expression() {
  */
 void Parser::Term() {
     Factor();
-    while (See(T_MULOP)) {
+    while (See(Token::MulOp)) {
         Arithmetic op = m_Scanner.GetArithmeticValue();
         Next();
         Factor();
 
-        if (op == A_MULTIPLY) {
+        if (op == Arithmetic::Multiply) {
             m_Codegen.emit(MULT);
         } else {
             m_Codegen.emit(DIV);
@@ -197,32 +198,33 @@ void Parser::Term() {
  *  <factor> -> number | identifier | -<factor> | (<expression>) | READ
  */
 void Parser::Factor() {
-    if (See(T_NUMBER)) {
+    if (See(Token::Number)) {
         int value = m_Scanner.GetIntValue();
         Next();
         m_Codegen.emit(PUSH, value);
-    } else if (See(T_TRUE)) {
+    } else if (See(Token::True)) {
         Next();
         m_Codegen.emit(PUSH, 1);
-    } else if (See(T_FALSE)) {
+    } else if (See(Token::False)) {
         Next();
         m_Codegen.emit(PUSH, 0);
-    } else if (See(T_IDENTIFIER)) {
+    } else if (See(Token::Identifier)) {
         int varAddress = FindOrAddVariable(m_Scanner.GetStringValue());
         Next();
         m_Codegen.emit(LOAD, varAddress);
-    } else if (See(T_ADDOP) && m_Scanner.GetArithmeticValue() == A_MINUS) {
+    } else if (See(Token::AddOp) &&
+               m_Scanner.GetArithmeticValue() == Arithmetic::Minus) {
         Next();
         Factor();
         m_Codegen.emit(INVERT);
-    } else if (Match(T_LPAREN)) {
+    } else if (Match(Token::LeftParen)) {
         LogicalOrExpression();
-        MustBe(T_RPAREN);
-    } else if (Match(T_NOT)) {
+        MustBe(Token::RightParen);
+    } else if (Match(Token::Not)) {
         Factor();
         m_Codegen.emit(PUSH, 0);
         m_Codegen.emit(COMPARE, 0);
-    } else if (Match(T_READ)) {
+    } else if (Match(Token::Read)) {
         m_Codegen.emit(INPUT);
     } else {
         ReportError("expression expected.");
@@ -231,7 +233,7 @@ void Parser::Factor() {
 
 void Parser::LogicalAndExpression() {
     Relation();
-    while (See(T_LAND)) {
+    while (See(Token::Land)) {
         Next();
         Relation();
         m_Codegen.emit(MULT);
@@ -239,7 +241,7 @@ void Parser::LogicalAndExpression() {
 
     std::vector<int> jumpFalseAddresses;
     bool has_and = false;
-    while (See(T_AND)) {
+    while (See(Token::And)) {
         has_and = true;
         Next();
 
@@ -270,7 +272,7 @@ void Parser::LogicalAndExpression() {
 
 void Parser::LogicalOrExpression() {
     LogicalAndExpression();
-    while (See(T_LOR)) {
+    while (See(Token::Lor)) {
         Next();
         LogicalAndExpression();
         m_Codegen.emit(ADD);
@@ -280,7 +282,7 @@ void Parser::LogicalOrExpression() {
 
     std::vector<int> jumpTrueAddresses;
     bool has_or = false;
-    while (See(T_OR)) {
+    while (See(Token::Or)) {
         has_or = true;
         Next();
 
@@ -315,27 +317,27 @@ void Parser::LogicalOrExpression() {
 // at the top of the stack it will be 0 or 1.
 void Parser::Relation() {
     Expression();
-    if (See(T_CMP)) {
-        Cmp cmp = m_Scanner.GetCmpValue();
+    if (See(Token::Cmp)) {
+        Comparison cmp = m_Scanner.GetCmpValue();
         Next();
         Expression();
         switch (cmp) {
-        case C_EQ:
+        case Comparison::Equal:
             m_Codegen.emit(COMPARE, 0);
             break;
-        case C_NE:
+        case Comparison::NotEqual:
             m_Codegen.emit(COMPARE, 1);
             break;
-        case C_LT:
+        case Comparison::LessThan:
             m_Codegen.emit(COMPARE, 2);
             break;
-        case C_GT:
+        case Comparison::GreaterThan:
             m_Codegen.emit(COMPARE, 3);
             break;
-        case C_LE:
+        case Comparison::LessThanOrEqual:
             m_Codegen.emit(COMPARE, 4);
             break;
-        case C_GE:
+        case Comparison::GreaterThanOrEqual:
             m_Codegen.emit(COMPARE, 5);
             break;
         };
@@ -366,7 +368,7 @@ void Parser::MustBe(Token t) {
 }
 
 void Parser::Recover(Token t) {
-    while (!See(t) && !See(T_EOF)) {
+    while (!See(t) && !See(Token::Eof)) {
         Next();
     }
 

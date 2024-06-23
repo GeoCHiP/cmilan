@@ -4,57 +4,57 @@
 #include <fstream>
 #include <map>
 
-enum Token {
-    T_EOF,
-    T_ILLEGAL,
-    T_IDENTIFIER,
-    T_NUMBER,
-    T_BEGIN,
-    T_END,
-    T_IF,
-    T_THEN,
-    T_ELSE,
-    T_FI,
-    T_WHILE,
-    T_DO,
-    T_OD,
-    T_WRITE,
-    T_READ,
-    T_ASSIGN,
-    T_ADDOP, // lexeme for "+" and "-"
-    T_MULOP, // lexeme for "*" and "/"
-    T_CMP,
-    T_LPAREN,
-    T_RPAREN,
-    T_SEMICOLON,
-    T_LAND, // lexeme for "&"
-    T_LOR,  // lexeme for "|"
-    T_AND,  // lexeme for "&&"
-    T_OR,   // lexeme for "||"
-    T_NOT,
-    T_TRUE,  // lexeme for "true"
-    T_FALSE, // lexeme for "false"
+enum class Token {
+    Eof,
+    Illegal,
+    Identifier,
+    Number,
+    Begin,
+    End,
+    If,
+    Then,
+    Else,
+    Fi,
+    While,
+    Do,
+    Od,
+    Write,
+    Read,
+    Assign,
+    AddOp, // lexeme for "+" and "-"
+    MulOp, // lexeme for "*" and "/"
+    Cmp,
+    LeftParen,
+    RightParen,
+    Semicolon,
+    Land, // lexeme for "&"
+    Lor,  // lexeme for "|"
+    And,  // lexeme for "&&"
+    Or,   // lexeme for "||"
+    Not,
+    True,  // lexeme for "true"
+    False, // lexeme for "false"
 };
 
 // Returns lexeme description.
 const char *TokenToString(Token t);
 
 // Type of comparison operation.
-enum Cmp {
-    C_EQ,
-    C_NE,
-    C_LT,
-    C_LE,
-    C_GT,
-    C_GE,
+enum class Comparison {
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 };
 
 // Type of arithmetic operation.
-enum Arithmetic {
-    A_PLUS,
-    A_MINUS,
-    A_MULTIPLY,
-    A_DIVIDE,
+enum class Arithmetic {
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
 };
 
 // Lexial analyzer.
@@ -67,7 +67,7 @@ public:
     Token GetCurrentToken() const;
     int GetIntValue() const;
     std::string GetStringValue() const;
-    Cmp GetCmpValue() const;
+    Comparison GetCmpValue() const;
     Arithmetic GetArithmeticValue() const;
 
     // Exctract the next lexeme.
@@ -89,7 +89,7 @@ private:
     int m_IntValue = 0;
     // Variable name
     std::string m_StringValue;
-    Cmp m_CmpValue;
+    Comparison m_CmpValue;
     Arithmetic m_ArithmeticValue;
     std::map<std::string, Token> m_Keywords;
     std::istream &m_InputStream;

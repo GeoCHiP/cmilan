@@ -37,19 +37,19 @@ static const char *s_TokenNames[] = {
 
 Scanner::Scanner(const std::string &fileName, std::istream &input)
     : m_FileName(fileName), m_InputStream(input) {
-    m_Keywords["begin"] = T_BEGIN;
-    m_Keywords["end"] = T_END;
-    m_Keywords["if"] = T_IF;
-    m_Keywords["then"] = T_THEN;
-    m_Keywords["else"] = T_ELSE;
-    m_Keywords["fi"] = T_FI;
-    m_Keywords["while"] = T_WHILE;
-    m_Keywords["do"] = T_DO;
-    m_Keywords["od"] = T_OD;
-    m_Keywords["write"] = T_WRITE;
-    m_Keywords["read"] = T_READ;
-    m_Keywords["true"] = T_TRUE;
-    m_Keywords["false"] = T_FALSE;
+    m_Keywords["begin"] = Token::Begin;
+    m_Keywords["end"] = Token::End;
+    m_Keywords["if"] = Token::If;
+    m_Keywords["then"] = Token::Then;
+    m_Keywords["else"] = Token::Else;
+    m_Keywords["fi"] = Token::Fi;
+    m_Keywords["while"] = Token::While;
+    m_Keywords["do"] = Token::Do;
+    m_Keywords["od"] = Token::Od;
+    m_Keywords["write"] = Token::Write;
+    m_Keywords["read"] = Token::Read;
+    m_Keywords["true"] = Token::True;
+    m_Keywords["false"] = Token::False;
 
     ExtractNextChar();
 }
@@ -74,7 +74,7 @@ std::string Scanner::GetStringValue() const {
     return m_StringValue;
 }
 
-Cmp Scanner::GetCmpValue() const {
+Comparison Scanner::GetCmpValue() const {
     return m_CmpValue;
 }
 
@@ -107,7 +107,7 @@ void Scanner::ExtractNextToken() {
                 }
 
                 if (m_InputStream.eof()) {
-                    m_CurrentToken = T_EOF;
+                    m_CurrentToken = Token::Eof;
                     return;
                 }
 
@@ -119,8 +119,8 @@ void Scanner::ExtractNextToken() {
                 SkipSpace();
             }
         } else {
-            m_CurrentToken = T_MULOP;
-            m_ArithmeticValue = A_DIVIDE;
+            m_CurrentToken = Token::MulOp;
+            m_ArithmeticValue = Arithmetic::Divide;
             return;
         }
 
@@ -128,7 +128,7 @@ void Scanner::ExtractNextToken() {
     }
 
     if (m_InputStream.eof()) {
-        m_CurrentToken = T_EOF;
+        m_CurrentToken = Token::Eof;
         return;
     }
 
@@ -138,7 +138,7 @@ void Scanner::ExtractNextToken() {
             value = value * 10 + (m_CurrentChar - '0');
             ExtractNextChar();
         }
-        m_CurrentToken = T_NUMBER;
+        m_CurrentToken = Token::Number;
         m_IntValue = value;
     } else if (IsIdentifierStart(m_CurrentChar)) {
         std::string buffer;
@@ -152,7 +152,7 @@ void Scanner::ExtractNextToken() {
 
         std::map<std::string, Token>::iterator kwd = m_Keywords.find(buffer);
         if (kwd == m_Keywords.end()) {
-            m_CurrentToken = T_IDENTIFIER;
+            m_CurrentToken = Token::Identifier;
             m_StringValue = buffer;
         } else {
             m_CurrentToken = kwd->second;
@@ -160,99 +160,99 @@ void Scanner::ExtractNextToken() {
     } else {
         switch (m_CurrentChar) {
         case '(':
-            m_CurrentToken = T_LPAREN;
+            m_CurrentToken = Token::LeftParen;
             ExtractNextChar();
             break;
         case ')':
-            m_CurrentToken = T_RPAREN;
+            m_CurrentToken = Token::RightParen;
             ExtractNextChar();
             break;
         case ';':
-            m_CurrentToken = T_SEMICOLON;
+            m_CurrentToken = Token::Semicolon;
             ExtractNextChar();
             break;
         case ':':
             ExtractNextChar();
             if (m_CurrentChar == '=') {
-                m_CurrentToken = T_ASSIGN;
+                m_CurrentToken = Token::Assign;
                 ExtractNextChar();
 
             } else {
-                m_CurrentToken = T_ILLEGAL;
+                m_CurrentToken = Token::Illegal;
             }
             break;
         case '<':
-            m_CurrentToken = T_CMP;
+            m_CurrentToken = Token::Cmp;
             ExtractNextChar();
             if (m_CurrentChar == '=') {
-                m_CmpValue = C_LE;
+                m_CmpValue = Comparison::LessThanOrEqual;
                 ExtractNextChar();
             } else {
-                m_CmpValue = C_LT;
+                m_CmpValue = Comparison::LessThan;
             }
             break;
         case '>':
-            m_CurrentToken = T_CMP;
+            m_CurrentToken = Token::Cmp;
             ExtractNextChar();
             if (m_CurrentChar == '=') {
-                m_CmpValue = C_GE;
+                m_CmpValue = Comparison::GreaterThanOrEqual;
                 ExtractNextChar();
             } else {
-                m_CmpValue = C_GT;
+                m_CmpValue = Comparison::GreaterThan;
             }
             break;
         case '!':
             ExtractNextChar();
             if (m_CurrentChar == '=') {
                 ExtractNextChar();
-                m_CurrentToken = T_CMP;
-                m_CmpValue = C_NE;
+                m_CurrentToken = Token::Cmp;
+                m_CmpValue = Comparison::NotEqual;
             } else {
-                m_CurrentToken = T_NOT;
+                m_CurrentToken = Token::Not;
             }
             break;
         case '=':
-            m_CurrentToken = T_CMP;
-            m_CmpValue = C_EQ;
+            m_CurrentToken = Token::Cmp;
+            m_CmpValue = Comparison::Equal;
             ExtractNextChar();
             break;
         case '+':
-            m_CurrentToken = T_ADDOP;
-            m_ArithmeticValue = A_PLUS;
+            m_CurrentToken = Token::AddOp;
+            m_ArithmeticValue = Arithmetic::Plus;
             ExtractNextChar();
             break;
 
         case '-':
-            m_CurrentToken = T_ADDOP;
-            m_ArithmeticValue = A_MINUS;
+            m_CurrentToken = Token::AddOp;
+            m_ArithmeticValue = Arithmetic::Minus;
             ExtractNextChar();
             break;
 
         case '*':
-            m_CurrentToken = T_MULOP;
-            m_ArithmeticValue = A_MULTIPLY;
+            m_CurrentToken = Token::MulOp;
+            m_ArithmeticValue = Arithmetic::Multiply;
             ExtractNextChar();
             break;
         case '&':
             ExtractNextChar();
             if (m_CurrentChar == '&') {
                 ExtractNextChar();
-                m_CurrentToken = T_AND;
+                m_CurrentToken = Token::And;
             } else {
-                m_CurrentToken = T_LAND;
+                m_CurrentToken = Token::Land;
             }
             break;
         case '|':
             ExtractNextChar();
             if (m_CurrentChar == '|') {
                 ExtractNextChar();
-                m_CurrentToken = T_OR;
+                m_CurrentToken = Token::Or;
             } else {
-                m_CurrentToken = T_LOR;
+                m_CurrentToken = Token::Lor;
             }
             break;
         default:
-            m_CurrentToken = T_ILLEGAL;
+            m_CurrentToken = Token::Illegal;
             ExtractNextChar();
             break;
         }
@@ -273,5 +273,5 @@ void Scanner::ExtractNextChar() {
 }
 
 const char *TokenToString(Token t) {
-    return s_TokenNames[t];
+    return s_TokenNames[static_cast<int>(t)];
 }
