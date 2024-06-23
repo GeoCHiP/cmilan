@@ -20,10 +20,10 @@
  *
  * When an error is detected, the parser prints a message and continues the
  * analysis with the next operator in order to find as many errors as possible
- * during the parsing process. Since the error recovery strategy is very simple,
- * printing is possible reports of non-existent ("induced") errors or skipping
- * some errors without printing messages. If at least one error was found during
- * the parsing process, the code for the VM is not printed.
+ * during the parsing process. Since the error recovery strategy is very
+ * simple, printing is possible reports of non-existent ("induced") errors or
+ * skipping some errors without printing messages. If at least one error was
+ * found during the parsing process, the code for the VM is not printed.
  * */
 
 class Parser {
@@ -52,8 +52,8 @@ private:
     // token stream does not change.
     bool See(Token t);
 
-    // Checking the match of the current token with the target. If the token and
-    // the target match, the token is removed from the stream.
+    // Checking the match of the current token with the target. If the token
+    // and the target match, the token is removed from the stream.
     bool Match(Token t);
 
     void Next();
@@ -78,7 +78,7 @@ private:
     CodeGen m_Codegen;
     VarTable m_Variables;
     bool m_IsError = false;
-	// the number of the last recorded variable
+    // the number of the last recorded variable
     int m_LastVariable = 0;
 };
 
