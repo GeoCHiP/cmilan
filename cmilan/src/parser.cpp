@@ -3,7 +3,7 @@
 #include "parser.h"
 
 Parser::Parser(const std::string &fileName, std::istream &input)
-    : m_Scanner(fileName, input), m_OutputStream(std::cout),
+    : m_OutputStream(std::cout), m_Scanner(fileName, input),
       m_Codegen(m_OutputStream) {
     Next();
 }
