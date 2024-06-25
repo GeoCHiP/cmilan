@@ -154,14 +154,17 @@ void Scanner::ExtractNextToken() {
             m_CurrentToken = Token::LeftParen;
             ExtractNextChar();
             break;
+
         case ')':
             m_CurrentToken = Token::RightParen;
             ExtractNextChar();
             break;
+
         case ';':
             m_CurrentToken = Token::Semicolon;
             ExtractNextChar();
             break;
+
         case ':':
             ExtractNextChar();
             if (m_CurrentChar == '=') {
@@ -172,6 +175,7 @@ void Scanner::ExtractNextToken() {
                 m_CurrentToken = Token::Illegal;
             }
             break;
+
         case '<':
             m_CurrentToken = Token::Cmp;
             ExtractNextChar();
@@ -182,6 +186,7 @@ void Scanner::ExtractNextToken() {
                 m_CmpValue = Comparison::LessThan;
             }
             break;
+
         case '>':
             m_CurrentToken = Token::Cmp;
             ExtractNextChar();
@@ -192,6 +197,7 @@ void Scanner::ExtractNextToken() {
                 m_CmpValue = Comparison::GreaterThan;
             }
             break;
+
         case '!':
             ExtractNextChar();
             if (m_CurrentChar == '=') {
@@ -202,11 +208,13 @@ void Scanner::ExtractNextToken() {
                 m_CurrentToken = Token::Illegal;
             }
             break;
+
         case '=':
             m_CurrentToken = Token::Cmp;
             m_CmpValue = Comparison::Equal;
             ExtractNextChar();
             break;
+
         case '+':
             m_CurrentToken = Token::AddOp;
             m_ArithmeticValue = Arithmetic::Plus;
