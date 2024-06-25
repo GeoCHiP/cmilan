@@ -28,13 +28,6 @@ enum class Token {
     LeftParen,
     RightParen,
     Semicolon,
-    Land, // lexeme for "&"
-    Lor,  // lexeme for "|"
-    And,  // lexeme for "&&"
-    Or,   // lexeme for "||"
-    Not,
-    True,  // lexeme for "true"
-    False, // lexeme for "false"
 };
 
 // Returns lexeme description.

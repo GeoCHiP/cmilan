@@ -26,13 +26,6 @@ static const char *s_TokenNames[] = {
     "'('",
     "')'",
     "';'",
-    "'&'",
-    "'|'",
-    "'&&'",
-    "'||'",
-    "'!'",
-    "'true'",
-    "'false'",
 };
 
 Scanner::Scanner(const std::string &fileName, std::istream &input)
@@ -48,8 +41,6 @@ Scanner::Scanner(const std::string &fileName, std::istream &input)
     m_Keywords["od"] = Token::Od;
     m_Keywords["write"] = Token::Write;
     m_Keywords["read"] = Token::Read;
-    m_Keywords["true"] = Token::True;
-    m_Keywords["false"] = Token::False;
 
     ExtractNextChar();
 }
@@ -208,7 +199,7 @@ void Scanner::ExtractNextToken() {
                 m_CurrentToken = Token::Cmp;
                 m_CmpValue = Comparison::NotEqual;
             } else {
-                m_CurrentToken = Token::Not;
+                m_CurrentToken = Token::Illegal;
             }
             break;
         case '=':
@@ -233,24 +224,7 @@ void Scanner::ExtractNextToken() {
             m_ArithmeticValue = Arithmetic::Multiply;
             ExtractNextChar();
             break;
-        case '&':
-            ExtractNextChar();
-            if (m_CurrentChar == '&') {
-                ExtractNextChar();
-                m_CurrentToken = Token::And;
-            } else {
-                m_CurrentToken = Token::Land;
-            }
-            break;
-        case '|':
-            ExtractNextChar();
-            if (m_CurrentChar == '|') {
-                ExtractNextChar();
-                m_CurrentToken = Token::Or;
-            } else {
-                m_CurrentToken = Token::Lor;
-            }
-            break;
+
         default:
             m_CurrentToken = Token::Illegal;
             ExtractNextChar();

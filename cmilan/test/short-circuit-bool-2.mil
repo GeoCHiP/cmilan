@@ -1,9 +1,0 @@
-begin
-    x := 0;
-
-    /* READ will be executed
-       because x = 0 is true */
-    if x = 0 && read then
-        write(2)
-    fi
-end

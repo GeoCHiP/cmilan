@@ -45,8 +45,6 @@ private:
     void Term();
     void Factor();
     void Relation();
-    void LogicalAndExpression();
-    void LogicalOrExpression();
 
     // Comparing the current token with the target. The current position in the
     // token stream does not change.

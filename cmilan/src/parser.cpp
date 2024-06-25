@@ -74,7 +74,7 @@ void Parser::Statement() {
         int varAddress = FindOrAddVariable(m_Scanner.GetStringValue());
         Next();
         MustBe(Token::Assign);
-        LogicalOrExpression();
+        Expression();
         m_Codegen.emit(STORE, varAddress);
     } else if (Match(Token::If)) {
         // If an IF is encountered, then the condition must follow. There is a
@@ -84,7 +84,7 @@ void Parser::Statement() {
         // transition address will become known only after the code for the
         // THEN block is generated.
 
-        LogicalOrExpression();
+        Relation();
 
         int jumpNoAddress = m_Codegen.reserve();
 
@@ -119,7 +119,7 @@ void Parser::Statement() {
         // Save the address of the start of the condition check.
         int conditionAddress = m_Codegen.getCurrentAddress();
 
-        LogicalOrExpression();
+        Relation();
 
         // Reserve a place for the conditional jump instruction to exit loop.
         int jumpNoAddress = m_Codegen.reserve();
@@ -202,12 +202,6 @@ void Parser::Factor() {
         int value = m_Scanner.GetIntValue();
         Next();
         m_Codegen.emit(PUSH, value);
-    } else if (See(Token::True)) {
-        Next();
-        m_Codegen.emit(PUSH, 1);
-    } else if (See(Token::False)) {
-        Next();
-        m_Codegen.emit(PUSH, 0);
     } else if (See(Token::Identifier)) {
         int varAddress = FindOrAddVariable(m_Scanner.GetStringValue());
         Next();
@@ -218,97 +212,12 @@ void Parser::Factor() {
         Factor();
         m_Codegen.emit(INVERT);
     } else if (Match(Token::LeftParen)) {
-        LogicalOrExpression();
+        Expression();
         MustBe(Token::RightParen);
-    } else if (Match(Token::Not)) {
-        Factor();
-        m_Codegen.emit(PUSH, 0);
-        m_Codegen.emit(COMPARE, 0);
     } else if (Match(Token::Read)) {
         m_Codegen.emit(INPUT);
     } else {
         ReportError("expression expected.");
-    }
-}
-
-void Parser::LogicalAndExpression() {
-    Relation();
-    while (See(Token::Land)) {
-        Next();
-        Relation();
-        m_Codegen.emit(MULT);
-    }
-
-    std::vector<int> jumpFalseAddresses;
-    bool has_and = false;
-    while (See(Token::And)) {
-        has_and = true;
-        Next();
-
-        m_Codegen.emit(PUSH, 0);
-        m_Codegen.emit(COMPARE, 0);
-        jumpFalseAddresses.push_back(m_Codegen.reserve());
-
-        Relation();
-    }
-
-    if (has_and) {
-        m_Codegen.emit(PUSH, 0);
-        m_Codegen.emit(COMPARE, 0);
-        jumpFalseAddresses.push_back(m_Codegen.reserve());
-
-        m_Codegen.emit(PUSH, 1);
-        int jumpTrueAddress = m_Codegen.reserve();
-
-        for (int jumpFalseAddress : jumpFalseAddresses) {
-            m_Codegen.emitAt(jumpFalseAddress, JUMP_YES,
-                             m_Codegen.getCurrentAddress());
-        }
-
-        m_Codegen.emit(PUSH, 0);
-        m_Codegen.emitAt(jumpTrueAddress, JUMP, m_Codegen.getCurrentAddress());
-    }
-}
-
-void Parser::LogicalOrExpression() {
-    LogicalAndExpression();
-    while (See(Token::Lor)) {
-        Next();
-        LogicalAndExpression();
-        m_Codegen.emit(ADD);
-        m_Codegen.emit(PUSH, 0);
-        m_Codegen.emit(COMPARE, 3);
-    }
-
-    std::vector<int> jumpTrueAddresses;
-    bool has_or = false;
-    while (See(Token::Or)) {
-        has_or = true;
-        Next();
-
-        m_Codegen.emit(PUSH, 1);
-        m_Codegen.emit(COMPARE, 0);
-        jumpTrueAddresses.push_back(m_Codegen.reserve());
-
-        Relation();
-    }
-
-    if (has_or) {
-        m_Codegen.emit(PUSH, 1);
-        m_Codegen.emit(COMPARE, 0);
-        jumpTrueAddresses.push_back(m_Codegen.reserve());
-
-        m_Codegen.emit(PUSH, 0);
-        int jumpFalseAddress = m_Codegen.reserve();
-
-        for (int jumpFalseAddress : jumpTrueAddresses) {
-            m_Codegen.emitAt(jumpFalseAddress, JUMP_YES,
-                             m_Codegen.getCurrentAddress());
-        }
-
-        m_Codegen.emit(PUSH, 1);
-        m_Codegen.emitAt(jumpFalseAddress, JUMP,
-                         m_Codegen.getCurrentAddress());
     }
 }
 
@@ -341,6 +250,8 @@ void Parser::Relation() {
             m_Codegen.emit(COMPARE, 5);
             break;
         };
+    } else {
+        ReportError("comparison operator expected.");
     }
 }
 
