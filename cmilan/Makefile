@@ -1,5 +1,5 @@
-CXX = g++
-CFLAGS = -Wall -Wextra -Werror -g
+CXX = clang++
+CXXFLAGS = -Wall -Wextra -Werror -g
 LDFLAGS =
 
 EXE = cmilan
@@ -11,7 +11,7 @@ OBJECTS = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
 all: $(EXE)
 
 $(EXE): $(OBJECTS)
-	$(CXX) $(LDFLAGS) -o $@ $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJECTS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
