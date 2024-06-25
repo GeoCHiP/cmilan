@@ -1,8 +1,9 @@
 #ifndef CMILAN_SCANNER_H
 #define CMILAN_SCANNER_H
 
-#include <fstream>
+#include <istream>
 #include <map>
+#include <string>
 
 enum class Token {
     Eof,
